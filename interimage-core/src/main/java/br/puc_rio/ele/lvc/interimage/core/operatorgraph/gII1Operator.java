@@ -7,6 +7,8 @@ import java.util.Map;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import br.puc_rio.ele.lvc.interimage.core.clustermanager.ClusterManager;
+
 public class gII1Operator extends gOperator {
 
 	private String II1Executable_;
@@ -18,7 +20,7 @@ public class gII1Operator extends gOperator {
 	private Map<String,String> parameterList_ = new HashMap<String,String>();
 	
 	@Override
-	protected int execute() {
+	protected int execute(ClusterManager clusterManager, String clusterId, boolean setup) {
 		// TODO Auto-generated method stub
 		String command = buildCommand();
 		

@@ -4,6 +4,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.json.JSONObject;
 
+import br.puc_rio.ele.lvc.interimage.core.clustermanager.ClusterManager;
+
 public abstract class gNode {
 
 	private boolean running_=false;
@@ -13,16 +15,16 @@ public abstract class gNode {
     static final AtomicLong NEXT_ID = new AtomicLong(0);
     final long id_ = NEXT_ID.getAndIncrement();    
  	
-	public void run(){
+	public void run(ClusterManager clusterManager, String clusterId, boolean setup){
 		this.setRunning(true);
 		//exec something	
-		execute();
+		execute(clusterManager, clusterId, setup);
 		this.setRunning(false);
 		this.setExecuted(true);
 		this.setAvailable(false);
 	}
 
-	protected abstract int execute();
+	protected abstract int execute(ClusterManager clusterManager, String clusterId, boolean setup);
 	
 	public boolean isRunning() {
 		return running_;

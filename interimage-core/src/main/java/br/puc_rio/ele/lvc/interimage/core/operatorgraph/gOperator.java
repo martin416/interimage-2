@@ -6,7 +6,7 @@ import java.util.List;
 public abstract class gOperator extends gNode {
 	private List<String> inputClasses_ = new ArrayList<String>();
 	private List<String> outputClasses_ = new ArrayList<String>();
-	
+				
 	public List<String> getInputClasses() {
 		return inputClasses_;
 	}
@@ -33,4 +33,5 @@ public abstract class gOperator extends gNode {
 	public boolean hasOutputClass(String classe) {
 		return outputClasses_.contains(classe);
 	}
+		
 }

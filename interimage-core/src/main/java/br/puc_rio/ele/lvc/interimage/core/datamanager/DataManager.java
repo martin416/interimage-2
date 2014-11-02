@@ -45,6 +45,7 @@ public class DataManager {
 
 	private Source _source;
 	private double[] _geoBBox; //west, south, east, north
+	private boolean _upload;
 	
 	public DataManager() {		
 		_geoBBox = new double[4];
@@ -54,11 +55,13 @@ public class DataManager {
 		_geoBBox[3] = -Double.MAX_VALUE;
 	}
 	
-	public void setup(Properties props) {
+	public void setup(Properties props, boolean upload) {
 		String service = props.getProperty("interimage.storageService");
 		
+		_upload = upload;
+		
 		if (service.equals("AWS"))
-			_source = new AWSSource(props.getProperty("interimage.aws.accessKey"),props.getProperty("interimage.aws.secretKey"),props.getProperty("interimage.aws.S3Bucket"));
+			_source = new AWSSource(props.getProperty("interimage.aws.accessKey"),props.getProperty("interimage.aws.secretKey"),props.getProperty("interimage.aws.S3Bucket"), _upload);
 	}
 	
 	public void updateGeoBBox(double[] gbox) {
@@ -107,63 +110,72 @@ public class DataManager {
 					BufferedWriter bw = new BufferedWriter(fw);
 				    	
 					//Test: single file for tiles
-					//FileWriter ftw = new FileWriter(projectPath + "tiles.json");
-					//BufferedWriter btw = new BufferedWriter(ftw);
+					FileWriter ftw = new FileWriter(projectPath + "tiles.json");
+					BufferedWriter btw = new BufferedWriter(ftw);
 					
 					/*Cleaning folder*/
 					File path = new File(projectPath + "tiles/");
 					
-					path.mkdirs();
+					if (!path.exists()) {
 					
-					for (final File fileEntry : path.listFiles()) {
-				        if (fileEntry.isDirectory()) {
-				        	//ignore
-				        } else {
-				        	fileEntry.delete();
-				        }
+						path.mkdirs();
+						
+						for (final File fileEntry : path.listFiles()) {
+					        if (fileEntry.isDirectory()) {
+					        	//ignore
+					        } else {
+					        	fileEntry.delete();
+					        }
+					    }
+						
+					    for (Tile tile : tiles) {
+					    	bw.write(tile.getGeometry() + "\n");
+					    	
+					    	/*for segmentation purposes*/
+						    OutputStream out2 = new FileOutputStream(projectPath + "tiles/" + tile.getCode() + ".json");
+					    	
+					    	String id = new UUID(null).random();
+					    	
+					    	String str = "{\"geometry\":";	                
+			                str += "\"" + tile.getGeometry() + "\"";
+			                //str += "\"" + WKBWriter.toHex(new WKBWriter().write(geom)) + "\"";	                	                
+			                str += ",\"data\":{\"0\":\"\"}";
+			                str += ",\"properties\":{\"tile\":\"" + tile.getCode() + "\",\"crs\":\"" + tileManager.getCRS() + "\",\"class\":\"None\",\"iiuuid\":\"" + id + "\"}}\n";
+					    	out2.write(str.getBytes());
+					    	
+					    	btw.write(str);
+					    	
+					    	out2.close();
+					    }
+					    
+					    btw.close();
+					    bw.close();
+					    
+					    //ShapefileConverter.WKTToShapefile(projectPath + "tiles.wkt", projectPath + "tiles.shp", null, null);
+					    
+					}
+					    
+				    if (_upload) {
+				    
+					    File folder = new File(projectPath + "tiles/");
+						
+						for (final File fileEntry : folder.listFiles()) {
+					        if (fileEntry.isDirectory()) {
+					        	//ignore
+					        } else {
+					        	_source.put(projectPath + "tiles/" + fileEntry.getName(), "interimage/" + projectName + "/tiles/" + fileEntry.getName(), rsrc);
+					        }
+					    }
+				    
 				    }
-					
-				    for (Tile tile : tiles) {
-				    	bw.write(tile.getGeometry() + "\n");
-				    	
-				    	/*for segmentation purposes*/
-					    OutputStream out2 = new FileOutputStream(projectPath + "tiles/" + tile.getCode() + ".json");
-				    	
-				    	String id = new UUID(null).random();
-				    	
-				    	String str = "{\"geometry\":";	                
-		                str += "\"" + tile.getGeometry() + "\"";
-		                //str += "\"" + WKBWriter.toHex(new WKBWriter().write(geom)) + "\"";	                	                
-		                str += ",\"data\":{\"0\":\"\"}";
-		                str += ",\"properties\":{\"tile\":\"" + tile.getCode() + "\",\"crs\":\"" + tileManager.getCRS() + "\",\"class\":\"None\",\"iiuuid\":\"" + id + "\"}}\n";
-				    	out2.write(str.getBytes());
-				    	
-				    	//btw.write(str);
-				    	
-				    	out2.close();
-				    }
-				    
-				    //btw.close();
-				    bw.close();
-				    
-				    ShapefileConverter.WKTToShapefile(projectPath + "tiles.wkt", projectPath + "tiles.shp", null, null);
-				    
-				    File folder = new File(projectPath + "tiles/");
-					
-					for (final File fileEntry : folder.listFiles()) {
-				        if (fileEntry.isDirectory()) {
-				        	//ignore
-				        } else {
-				        	_source.put(projectPath + "tiles/" + fileEntry.getName(), "interimage/" + projectName + "/tiles/" + fileEntry.getName(), rsrc);
-				        }
-				    }
-				    
+						
 				    String to = "interimage/" + projectName + "/resources/tiles.ser";
 				    
-				    _source.put(projectPath + "tiles.ser", to, rsrc);
+				    if (_upload)
+				    	_source.put(projectPath + "tiles.ser", to, rsrc);
 				    			
 				    returnUrl = _source.getURL() + to;
-				    
+								    
 				} catch (Exception e) {
 					System.out.println("Failed to setup DefaultResource of type TILE; error - " + e.getMessage());
 					e.printStackTrace();
@@ -300,15 +312,19 @@ public class DataManager {
 					
 					}
 					
-					for (final File fileEntry : folder.listFiles()) {
-				        if (fileEntry.isDirectory()) {
-				        	//ignore
-				        } else {
-				        	if (!fileEntry.getName().endsWith("w"))
-				        		_source.put(projectPath + "images/" + key + "/" + fileEntry.getName(), "interimage/" + projectName + "/resources/images/" + key + "/" + fileEntry.getName(), rsrc);
-				        		//_source.makePublic("interimage/" + projectName + "/resources/images/" + key + "/" + fileEntry.getName());
-				        }
-				    }
+					if (_upload) {
+					
+						for (final File fileEntry : folder.listFiles()) {
+					        if (fileEntry.isDirectory()) {
+					        	//ignore
+					        } else {
+					        	if (!fileEntry.getName().endsWith("w"))
+					        		_source.put(projectPath + "images/" + key + "/" + fileEntry.getName(), "interimage/" + projectName + "/resources/images/" + key + "/" + fileEntry.getName(), rsrc);
+					        		//_source.makePublic("interimage/" + projectName + "/resources/images/" + key + "/" + fileEntry.getName());
+					        }
+					    }
+						
+					}
 					
 					//_source.multiplePut(folder, "interimage/" + projectName + "/resources/images/" + key + "/");
 					

@@ -44,19 +44,21 @@ public class AWSSource implements Source {
 	private String _accessKey;	
 	private String _secretKey;
 	private String _bucket;
+	private boolean _upload;
 	private TransferManager _manager;
 	
-	public AWSSource(String accessKey, String secretKey, String bucket) {
+	public AWSSource(String accessKey, String secretKey, String bucket, boolean upload) {
 		_accessKey = accessKey;
 		_secretKey = secretKey;
 		_bucket = bucket;
+		_upload = upload;
 		
 		AWSCredentials credentials = new BasicAWSCredentials(_accessKey, _secretKey);
 		
-		ClientConfiguration conf = new ClientConfiguration();
+		/*ClientConfiguration conf = new ClientConfiguration();
 		
 		conf.setConnectionTimeout(0);
-		conf.setSocketTimeout(0);
+		conf.setSocketTimeout(0);*/
 		
 		AmazonS3 conn = new AmazonS3Client(credentials);
 		conn.setEndpoint("https://s3.amazonaws.com");
@@ -89,11 +91,12 @@ public class AWSSource implements Source {
 				}
 			}
 		
-			//Upload upload = _manager.upload(putObjectRequest);
+			if (_upload) {
+				Upload upload = _manager.upload(putObjectRequest);			
+				upload.waitForCompletion();
+			}
 			
-			//upload.waitForCompletion();
-			
-			System.out.println("AWSSource: Uploaded file - " + to);
+			//System.out.println("AWSSource: Uploaded file - " + to);
 			
 		} catch (Exception e) {
 			System.err.println("Source put failed: " + e.getMessage());			
@@ -109,13 +112,13 @@ public class AWSSource implements Source {
 			e.printStackTrace();			
 		}
 		
-		System.out.println("AWSSource: Uploaded directory - " + dir.toString());
+		//System.out.println("AWSSource: Uploaded directory - " + dir.toString());
 		
 	}
 	
 	public void makePublic(String key) {
 		//_manager.getAmazonS3Client().setObjectAcl(_bucket, key, CannedAccessControlList.PublicRead);
-		System.out.println("AWSSource: Made public - " + key);
+		//System.out.println("AWSSource: Made public - " + key);
 	}
 	
 	public String getSpecificURL() {

@@ -68,6 +68,7 @@ public class Project {
 	//private String _decisionTree = null;
 	private Properties _properties;
 	//private RuleSet _ruleSet;
+	private boolean _upload;
 	
 	public Project() {
 		_semanticNet = new SemanticNetwork();
@@ -96,10 +97,14 @@ public class Project {
 		return _shapeList;
 	}
 	
-	public void readOldFile(String url) {
+	public Properties getProperties() {
+		return _properties;
+	}
 	
-		try {
+	public void readOldFile(String url, boolean upload) {
 		
+		try {
+					
 			/*Processing input parameters*/
 			if (url == null) {
 	            throw new Exception("No project file specified");
@@ -108,29 +113,32 @@ public class Project {
 	        		throw new Exception("No project file specified");
 	        	}
 	        }
-						
+			
+			_upload = upload;
+			
 			_projectPath = url;
-			
-			_properties.setProperty("interimage.projectPath", _projectPath);
-			
-			_projectName = URL.getFileNameWithoutExtension(url);
-			
-			_properties.setProperty("interimage.projectName", _projectName);
-			
+						
 			/*Reading properties file*/
 			InputStream input = new FileInputStream("interimage.properties");
 
 			_properties.load(input);
 			
-			/*Setting reduce parallelism*/
-			int clusterSize = Integer.parseInt(_properties.getProperty("interimage.clusterSize"));
-			int parallel = (int)Math.round(clusterSize * 0.8);
+			_properties.setProperty("interimage.projectPath", _projectPath);
 			
-			_properties.setProperty("interimage.parallel", String.valueOf(parallel));
-
 			_tilePixelSize = Integer.parseInt(_properties.getProperty("interimage.tileSize"));
 			
-			_dataManager.setup(_properties);
+			_projectName = URL.getFileNameWithoutExtension(url) + "/" + String.valueOf(_tilePixelSize);
+			
+			_properties.setProperty("interimage.projectName", _projectName);
+			
+			/*Setting reduce parallelism*/
+			int clusterSize = Integer.parseInt(_properties.getProperty("interimage.clusterSize"));
+			//int parallel = (int)Math.round(clusterSize * 0.8);
+			int parallel = clusterSize-1;
+			
+			_properties.setProperty("interimage.parallel", String.valueOf(parallel));
+			
+			_dataManager.setup(_properties, _upload);
 			
 			_properties.setProperty("interimage.sourceURL", _dataManager.getSourceURL());
 			_properties.setProperty("interimage.sourceSpecificURL", _dataManager.getSourceSpecificURL());
@@ -246,7 +254,7 @@ public class Project {
 			    	_tileManager = new TileManager(_tilePixelSize * _minResolution, crs);
 			    	
 			    	_dataManager.updateGeoBBox(new double[] {_imageList.getGeoWest(), _imageList.getGeoSouth(), _imageList.getGeoEast(), _imageList.getGeoNorth()}); 
-			    	
+			    				    	
 			    	for (Map.Entry<String, Image> entry : _imageList.getImages().entrySet()) {
 			    		_dataManager.setupResource(new SplittableResource(entry.getValue(),SplittableResource.IMAGE), _tileManager, _projectName, URL.getPath(_projectPath));
 			    	}
@@ -275,11 +283,16 @@ public class Project {
 				    	
 				    	_shapeList.add(key, shp);
 				    	
-				    	if (splittable) {
-				    		_dataManager.setupResource(new SplittableResource(shp,SplittableResource.SHAPE), _tileManager, _projectName, null);
-				    	} else {
-				    		_dataManager.setupResource(new DefaultResource(shp,DefaultResource.SHAPE), null, _projectName, null);
+				    	if (_upload) {
+				    	
+					    	if (splittable) {
+					    		_dataManager.setupResource(new SplittableResource(shp,SplittableResource.SHAPE), _tileManager, _projectName, null);
+					    	} else {
+					    		_dataManager.setupResource(new DefaultResource(shp,DefaultResource.SHAPE), null, _projectName, null);
+					    	}
+					    	
 				    	}
+				    	
 			    	}
 			    				    	
 			    } else {
@@ -295,7 +308,7 @@ public class Project {
 			    		
 			    _properties.setProperty("interimage.tileUrl", tileUrl);
 			    
-			    String fuzzyUrl = null;
+			    String fuzzyUrl = "";
 			    
 			    /*Reading FuzzySets*/
 			    if (fuzzySets.getLength() > 0) {
@@ -304,8 +317,12 @@ public class Project {
 			    	
 			    	_fuzzySetList.readOldFile(fuzzySet.getAttribute("file"));
 
-			    	if (_fuzzySetList.size()>0)
-			    		fuzzyUrl = _dataManager.setupResource(new DefaultResource(new ArrayList<FuzzySet>(_fuzzySetList.getFuzzySets().values()), DefaultResource.FUZZY_SET), null, _projectName, URL.getPath(_projectPath));			    	
+			    	if (_upload) {
+			    	
+				    	if (_fuzzySetList.size()>0)
+				    		fuzzyUrl = _dataManager.setupResource(new DefaultResource(new ArrayList<FuzzySet>(_fuzzySetList.getFuzzySets().values()), DefaultResource.FUZZY_SET), null, _projectName, URL.getPath(_projectPath));			    	
+			    	
+			    	}
 			    	
 			    } else {
 			    	System.out.println("Warning: No fuzzysets tag defined in your project file.");
@@ -320,19 +337,23 @@ public class Project {
 			    //System.out.println(_ruleSet.getPigCode());
 			    //Test
 			    
-			    /*Sending libs to the cluster*/			    
-			    File folder = new File("lib");
-				
-				for (final File fileEntry : folder.listFiles()) {
-			        if (fileEntry.isDirectory()) {
-			        	//ignore
-			        } else {
-			        	_dataManager.setupResource(new DefaultResource(new String("lib/" + fileEntry.getName()), DefaultResource.FILE), null, _projectName, null);	
-			        }
-			    }
+			    if (_upload) {
 			    
-			    /*Sending import file to the cluster*/
-			    _dataManager.setupResource(new DefaultResource(new String("interimage-import.pig"), DefaultResource.FILE), null, _projectName, null);
+				    /*Sending libs to the cluster*/			    
+				    File folder = new File("lib");
+					
+					for (final File fileEntry : folder.listFiles()) {
+				        if (fileEntry.isDirectory()) {
+				        	//ignore
+				        } else {
+				        	_dataManager.setupResource(new DefaultResource(new String("lib/" + fileEntry.getName()), DefaultResource.FILE), null, _projectName, null);	
+				        }
+				    }
+				    
+				    /*Sending import file to the cluster*/
+				    _dataManager.setupResource(new DefaultResource(new String("interimage-import.pig"), DefaultResource.FILE), null, _projectName, null);
+				    
+			    }
 			    			    
 		    } else {
 		    	throw new Exception("No geoproject tag defined");
@@ -346,5 +367,5 @@ public class Project {
 		}
 		
 	}
-	
+		
 }

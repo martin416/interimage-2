@@ -2,6 +2,8 @@ package br.puc_rio.ele.lvc.interimage.core.operatorgraph;
 
 import org.json.JSONObject;
 
+import br.puc_rio.ele.lvc.interimage.core.clustermanager.ClusterManager;
+
 import com.mortardata.api.v2.JobRequest;
 import com.mortardata.api.v2.Jobs;
 import com.mortardata.api.v2.Jobs.JobStatus;
@@ -48,7 +50,7 @@ public class gMortarOperator extends gOperator {
 		this.pigScriptPath_ = pigScriptPath;
 	}
 	
-	protected int execute()
+	protected int execute(ClusterManager clusterManager, String clusterId, boolean setup)
 	{
 		JobRequest jobRequest = new JobRequest(projectName_, pigScriptPath_, codeVersion_, clusterSize_);
 		String jobId;

@@ -36,6 +36,8 @@ copy /Y C:\Users\Rodrigo\Documents\interimage-2\workspace-maven\interimage-geome
 xcopy /Y /S /Q /I C:\Users\Rodrigo\Documents\interimage-2\workspace-maven\interimage-operators\src C:\Users\Rodrigo\Documents\GitHub\interimage-2\interimage-operators\src
 copy /Y C:\Users\Rodrigo\Documents\interimage-2\workspace-maven\interimage-operators\pom.xml C:\Users\Rodrigo\Documents\GitHub\interimage-2\interimage-operators\pom.xml
 
+xcopy /Y /S /Q /I C:\Users\Rodrigo\Documents\interimage-2\workspace-maven\misc C:\Users\Rodrigo\Documents\GitHub\interimage-2\misc
+
 :: This command copies the updated file
 ::copy /Y C:\Users\Rodrigo\Documents\interimage-2\s3\scripts\interimage-datamining-import.pig C:\Users\Rodrigo\Documents\GitHub\interimage-2\interimage-datamining\interimage-datamining-import.pig
 

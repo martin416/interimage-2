@@ -37,7 +37,7 @@ public class graphExample {
 		
 		Jobs jobs = new Jobs(new API(email, apiKey));
 			
-		gController g = new gController(null);
+		gController g = new gController();
 		g.setMortarJobs_(jobs);
 		
 		gMortarOperator n1 = g.addMortarOperator("teste1");
@@ -115,7 +115,7 @@ public class graphExample {
 		
 		try {
 		    Thread.sleep(1000);
-		    g.run();
+		    g.run("");
 		} catch(InterruptedException ex) {
 		    Thread.currentThread().interrupt();
 		}

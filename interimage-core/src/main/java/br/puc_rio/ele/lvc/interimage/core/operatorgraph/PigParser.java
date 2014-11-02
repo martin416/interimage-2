@@ -53,7 +53,7 @@ public class PigParser {
 	
 	public void setup(Properties properties) {
 		
-		_projectPath = properties.getProperty("interimage.projectPath");
+		_projectPath = properties.getProperty("interimage.projectPath");				
 		String sourceURL = properties.getProperty("interimage.sourceURL");
 		String sourceSpecificURL = properties.getProperty("interimage.sourceSpecificURL");
 		String projectName = properties.getProperty("interimage.projectName");
@@ -67,11 +67,11 @@ public class PigParser {
 		_params.put("$RESULT_PATH", sourceSpecificURL + "interimage/" + projectName + "/results/" + randomGenerator.nextInt(100000));
 		_params.put("$IMAGES_PATH", sourceURL + "interimage/" + projectName + "/resources/images/");
 		_params.put("$SHAPES_PATH", sourceURL + "interimage/" + projectName + "/resources/shapes/");
-		_params.put("$SHAPES_KEY", "interimage/" + projectName + "/resources/shapes/");
+		//_params.put("$SHAPES_KEY", "interimage/" + projectName + "/resources/shapes/");
 		_params.put("$TILES_FILE", sourceURL + "interimage/" + projectName + "/resources/tiles.ser");
 		_params.put("$TILES_PATH", sourceSpecificURL + "interimage/" + projectName + "/tiles/");
 		_params.put("$DUMP_PATH", sourceSpecificURL + "interimage/" + projectName + "/dump/" + randomGenerator.nextInt(100000));
-		_params.put("$RESULTS_PATH", sourceSpecificURL + "interimage/" + projectName + "/results/" + randomGenerator.nextInt(100000));
+		//_params.put("$RESULTS_PATH", sourceSpecificURL + "interimage/" + projectName + "/results/" + randomGenerator.nextInt(100000));
 		_params.put("$TILE_SIZE_METERS", tileSizeMeters);
 		_params.put("$PARALLEL", properties.getProperty("interimage.parallel"));
 		_params.put("$CRS", crs);
@@ -201,7 +201,7 @@ public class PigParser {
 		try {
 		
 			if (line.contains("BEGIN FOR TILES")) {
-	    		
+				
 	    		String tiles = "";
 	    		
 	    		List<String> statements = new ArrayList<String>();
@@ -213,14 +213,14 @@ public class PigParser {
 	    			line = buff.readLine();
 	    		}
 	    			        		
-	    		File folder = new File(_projectPath + "tiles/");
+	    		File folder = new File(URL.getPath(_projectPath) + "tiles/");
 					
 	    		boolean first1 = true;
 	    		boolean first2 = true;
-	    		
+	    			    		
 	    		int totalSize = folder.list().length;
 	    		
-	    		int blockSize = (int)Math.ceil(totalSize / (float)_parallel);
+	    		int blockSize = (int)Math.ceil(totalSize / (float)(_parallel*8));
 	    			    		
 	    		int count1 = 1;
 	    		int count2 = 1;	        		
@@ -288,8 +288,7 @@ public class PigParser {
 				}
 	    						
 				_params.put("$TILES_PROJECTIONS", tiles);
-				
-				
+							
 	    	} else if (line.contains("BEGIN IF")) {
 				
 	    		String[] terms = line.split(" ");
@@ -441,7 +440,7 @@ public class PigParser {
 			System.out.println("It was not possible to parse the Pig script.");
 		}
 	    	
-		/*if (_specificParams.containsKey("$STORE")) {
+		if (_specificParams.containsKey("$STORE")) {
 			
 			String relation = null;
 			
@@ -451,8 +450,8 @@ public class PigParser {
 				relation = _globalRelations.get(_globalRelations.size()-1);
 			}
 			
-			parsedScript = parsedScript + "STORE " + relation + " INTO '" + _params.get("$RESULT_PATH") + "' USING org.apache.pig.piggybank.storage.JsonStorage();\n";
-		}*/
+			parsedScript = parsedScript + "STORE " + relation + " INTO '" + _params.get("$RESULT_PATH") + "' USING br.puc_rio.ele.lvc.interimage.common.udf.CompressedJsonStorage();\n";
+		}
 		
 		return parsedScript;
 		
@@ -480,6 +479,11 @@ public class PigParser {
 
 	public String getResult() {
 		return _params.get("$RESULT_PATH");
+	}
+	
+	@SuppressWarnings("unchecked")
+	public Map<String, String> getOperatorInputs(String operatorName) {
+		return (Map<String, String>)_set.getOperators().get(operatorName).get("inputs");
 	}
 	
 }

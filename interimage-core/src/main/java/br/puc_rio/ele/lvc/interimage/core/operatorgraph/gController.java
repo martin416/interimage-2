@@ -1,26 +1,60 @@
+/*Copyright 2014 Computer Vision Lab
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.*/
+
 package br.puc_rio.ele.lvc.interimage.core.operatorgraph;
 
 import java.util.*;
 
-import org.jgrapht.*;
 import org.jgrapht.graph.*;
 import org.json.*;
+
 import java.util.HashMap;
 import java.util.Map;
+
+import br.puc_rio.ele.lvc.interimage.core.clustermanager.AWSClusterManager;
+import br.puc_rio.ele.lvc.interimage.core.clustermanager.ClusterManager;
+
 import com.mortardata.api.v2.Jobs;
+
+/**
+ * Class that manages the operator graph. 
+ * @author Dário Oliveira, Rodrigo Ferreira
+ */
 
 public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 
-	/**
-	 * 
-	 */
 	private static final long serialVersionUID = 8285085270334519490L;
 	public Jobs mortarJobs_;
-	public gController(EdgeFactory<gNode, gEdge> ef) {
-		super(ef);
+	private ClusterManager clusterManager_;
+	private boolean setup_;
+	@SuppressWarnings("unused")
+	private Properties properties_;
+	
+	public gController() {
+		super(gEdge.class);
+		
+		clusterManager_ = new AWSClusterManager();
+		setup_=true;
+		
 		// TODO Auto-generated constructor stub
 	}
 
+	public void setProperties(Properties props) {
+		properties_ = props;
+		clusterManager_.setProperties(props);
+	}
+	
 	public String exportToJSON(){
 		
 		Set<gNode> nodes = this.vertexSet();
@@ -165,9 +199,25 @@ public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 		return node;
 	}
 	
+	public gClusterOperator addClusterOperator() {
+		gClusterOperator node = new gClusterOperator();
+		this.addVertex(node);
+		return node;
+	}
+	
+	public gClusterOperator addClusterOperator(JSONObject obj){
+		gClusterOperator node = new gClusterOperator();
+		node.importFromJSON(obj);
+		this.addVertex(node);
+		return node;
+	}
+	
 	//run controller
-	public int run()
+	public int run(String clusterId)
 	{
+				
+		System.out.println("Controller: run");
+		
 		int numberOfRunningNodes=0;
 		Set<gNode> nodes = this.vertexSet();
 		
@@ -175,12 +225,18 @@ public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 		{
 			if (node.isRunning())
 			{
+				
+				System.out.println("Controller: node running");
+				
 				numberOfRunningNodes=numberOfRunningNodes+1;
 				continue;
 			}
 
 			if (node.isExecuted())
 			{
+				
+				System.out.println("Controller: executed");
+				
 				updateLinkedNodes(node);	
 				continue;
 			}
@@ -189,12 +245,46 @@ public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 			
 			if (node.isAvailable())
 			{
+				
+				System.out.println("Controller: available");
+				
 				//call node run method
-				node.run();
+				node.run(clusterManager_, clusterId, setup_);
+				
+				numberOfRunningNodes=numberOfRunningNodes+1;
+				
+				/*Setup for libs and hadoop/pig in the first run*/
+				if (setup_)
+					setup_ = false;
+				
 			}
 
 		}
 		return numberOfRunningNodes;
+	}
+	
+	public int execute() {
+		
+		String clusterId = clusterManager_.createCluster();
+		
+		try {
+			
+			int runningNodes = 999;
+			
+			while (true/*runningNodes > 0*/) {
+			    runningNodes = run(clusterId);
+			    //System.out.println("Step");
+			    //System.out.println(runningNodes);
+			    Thread.sleep(10000);			    
+			}
+			
+		} catch(InterruptedException ex) {
+		    Thread.currentThread().interrupt();
+		}
+		
+		//clusterManager_.terminateCluster(clusterId);
+		
+		return 0;
 	}
 	
 }

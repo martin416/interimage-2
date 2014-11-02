@@ -4,6 +4,8 @@ import java.io.IOException;
 
 import org.json.JSONObject;
 
+import br.puc_rio.ele.lvc.interimage.core.clustermanager.ClusterManager;
+
 public class gCommandLineOperator extends gOperator {
 
 	private String commandLine_;
@@ -23,7 +25,7 @@ public class gCommandLineOperator extends gOperator {
 	}
 
 	@Override
-	protected int execute() {
+	protected int execute(ClusterManager clusterManager, String clusterId, boolean setup) {
 		// TODO Auto-generated method stub
 		Runtime rt = Runtime.getRuntime();
 		

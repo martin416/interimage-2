@@ -23,6 +23,8 @@ import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 
 import org.iq80.snappy.SnappyOutputStream;
+import org.jgrapht.EdgeFactory;
+import org.jgrapht.graph.ClassBasedEdgeFactory;
 
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
@@ -35,9 +37,57 @@ import br.puc_rio.ele.lvc.interimage.core.project.Project;
 import br.puc_rio.ele.lvc.interimage.core.ruleset.RuleSet;
 import br.puc_rio.ele.lvc.interimage.core.operatorgraph.OperatorSet;
 import br.puc_rio.ele.lvc.interimage.core.operatorgraph.PigParser;
+import br.puc_rio.ele.lvc.interimage.core.operatorgraph.gClusterOperator;
+import br.puc_rio.ele.lvc.interimage.core.operatorgraph.gController;
+import br.puc_rio.ele.lvc.interimage.core.operatorgraph.gEdge;
+import br.puc_rio.ele.lvc.interimage.core.operatorgraph.gMortarOperator;
+import br.puc_rio.ele.lvc.interimage.core.operatorgraph.gNode;
 import br.puc_rio.ele.lvc.interimage.geometry.ShapefileConverter;
 
 public class Example {
+	
+	public static void runCluster() {
+		
+		Locale locale = new Locale("en", "US");
+		Locale.setDefault(locale);
+		
+		Project project = new Project();		
+		project.readOldFile("C:\\Users\\Rodrigo\\Documents\\workshop\\exercise13\\exercise13.gap", false);		
+		Properties props = project.getProperties();
+		
+		gController g = new gController();
+		g.setProperties(props);		
+		
+		gClusterOperator op1 = g.addClusterOperator();
+		
+		op1.setOperatorName("MutualMultiresolutionSegmentation");
+		op1.setProperties(props);
+		
+		//This code returns the input parameters of an operator
+		//Map<String,String> inputs = parser_.getOperatorInputs(operatorName_);
+		
+		Map<String,String> params = new HashMap<String, String>();
+		
+		params.put("$IMAGE_KEY","nairobi");
+		params.put("$SCALE","30");
+		params.put("$WCOLOR","0.5");
+		params.put("$WCOMPACTNESS","0.5");
+		params.put("$WBANDS","1,1,1,1");
+		//params.put("$ROI",parser.getExport().get("Soil"));
+		params.put("$CLASS","Segmentation");
+		params.put("$RELIABILITY","0.3");
+		//params.put("$INPUT.ROI","true");
+		params.put("$STORE","true");
+		
+		op1.setParameters(params);
+		
+		op1.prepare();
+		
+		//op1.run(null, "", true);
+		
+		g.execute();
+		
+	}
 	
 	public static void runSegmentation() {
 		
@@ -51,10 +101,10 @@ public class Example {
 		properties.setProperty("interimage.projectPath", "C:\\Users\\Rodrigo\\Documents\\workshop\\exercise13\\");
 		properties.setProperty("interimage.sourceURL", "https://s3.amazonaws.com/interimage2/");
 		properties.setProperty("interimage.sourceSpecificURL", "s3n://interimage2/");
-		properties.setProperty("interimage.projectName", "exercise13_512");
-		properties.setProperty("interimage.parallel", "152");
+		properties.setProperty("interimage.projectName", "exercise13_256");
+		properties.setProperty("interimage.parallel", "32");
 		properties.setProperty("interimage.crs", "EPSG:32735");
-		properties.setProperty("interimage.tileSizeMeters", "640");
+		properties.setProperty("interimage.tileSizeMeters", "320");
 						
 		Map<String, String> params = new HashMap<String,String>();
 		
@@ -106,13 +156,15 @@ public class Example {
 		
 		Project project = new Project();
 		
-		project.readOldFile("C:\\Users\\Rodrigo\\Documents\\workshop\\exercise13\\exercise13.gap");
+		project.readOldFile("C:\\Users\\Rodrigo\\Documents\\workshop\\exercise13\\exercise13.gap", false);
 		
 	}
 	
 	public static void main(String[] args) {
 
-		runSegmentation();
+		runCluster();
+		
+		//runSegmentation();
 		
 		//openProject();
 		

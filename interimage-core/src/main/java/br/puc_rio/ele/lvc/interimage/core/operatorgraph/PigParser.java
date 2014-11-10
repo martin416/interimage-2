@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Random;
 
 import br.puc_rio.ele.lvc.interimage.common.URL;
 
@@ -51,30 +50,38 @@ public class PigParser {
 	
 	private OperatorSet _set;
 	
+	private String _sourceURL;
+	private String _sourceSpecificURL;
+	private String _projectName;
+	private String _crs;
+	private String _tileSizeMeters;	
+	
 	public void setup(Properties properties) {
 		
 		_projectPath = properties.getProperty("interimage.projectPath");				
-		String sourceURL = properties.getProperty("interimage.sourceURL");
-		String sourceSpecificURL = properties.getProperty("interimage.sourceSpecificURL");
-		String projectName = properties.getProperty("interimage.projectName");
+		_sourceURL = properties.getProperty("interimage.sourceURL");
+		_sourceSpecificURL = properties.getProperty("interimage.sourceSpecificURL");
+		_projectName = properties.getProperty("interimage.projectName");
 		_parallel = Integer.parseInt(properties.getProperty("interimage.parallel"));
-		String crs = properties.getProperty("interimage.crs");
-		String tileSizeMeters = properties.getProperty("interimage.tileSizeMeters");
+		_crs = properties.getProperty("interimage.crs");
+		_tileSizeMeters = properties.getProperty("interimage.tileSizeMeters");
 		_params = new HashMap<String,String>();
 				
-		Random randomGenerator = new Random();
+		//Random randomGenerator = new Random();
 		
-		_params.put("$RESULT_PATH", sourceSpecificURL + "interimage/" + projectName + "/results/" + randomGenerator.nextInt(100000));
-		_params.put("$IMAGES_PATH", sourceURL + "interimage/" + projectName + "/resources/images/");
-		_params.put("$SHAPES_PATH", sourceURL + "interimage/" + projectName + "/resources/shapes/");
+		//_params.put("$OUTPUT_PATH", _sourceSpecificURL + "interimage/" + _projectName + "/results/" + randomGenerator.nextInt(100000));
+		_params.put("$IMAGES_PATH", _sourceURL + "interimage/" + _projectName + "/resources/images/");
+		_params.put("$SHAPES_PATH", _sourceURL + "interimage/" + _projectName + "/resources/shapes/");
 		//_params.put("$SHAPES_KEY", "interimage/" + projectName + "/resources/shapes/");
-		_params.put("$TILES_FILE", sourceURL + "interimage/" + projectName + "/resources/tiles.ser");
-		_params.put("$TILES_PATH", sourceSpecificURL + "interimage/" + projectName + "/tiles/");
-		_params.put("$DUMP_PATH", sourceSpecificURL + "interimage/" + projectName + "/dump/" + randomGenerator.nextInt(100000));
+		_params.put("$TILES_FILE", _sourceURL + "interimage/" + _projectName + "/resources/tiles.ser");
+		_params.put("$FUZZYSETS_FILE", _sourceURL + "interimage/" + _projectName + "/resources/fuzzysets.ser");
+		_params.put("$TILES_PATH", _sourceSpecificURL + "interimage/" + _projectName + "/tiles/");
+		//_params.put("$DUMP_PATH", _sourceSpecificURL + "interimage/" + _projectName + "/dump/" + randomGenerator.nextInt(100000));
 		//_params.put("$RESULTS_PATH", sourceSpecificURL + "interimage/" + projectName + "/results/" + randomGenerator.nextInt(100000));
-		_params.put("$TILE_SIZE_METERS", tileSizeMeters);
-		_params.put("$PARALLEL", properties.getProperty("interimage.parallel"));
-		_params.put("$CRS", crs);
+		_params.put("$TILE_SIZE_METERS", _tileSizeMeters);
+		_params.put("$PARALLEL", String.valueOf(_parallel));
+		_params.put("$CRS", _crs);
+		
 	}
 	
 	public PigParser() {
@@ -94,6 +101,14 @@ public class PigParser {
 		for (Map.Entry<String, String> entry : params.entrySet()) {
 			_specificParams.put(entry.getKey(), entry.getValue());
 		}
+				
+		/*Random randomGenerator = new Random();
+		
+		//_params.put("$LAST_OUTPUT_PATH", _params.get("$OUTPUT_PATH"));
+		//_params.put("$LAST_DUMP_PATH", _params.get("$DUMP_PATH"));
+		_params.put("$OUTPUT_PATH", _sourceSpecificURL + "interimage/" + _projectName + "/results/" + randomGenerator.nextInt(100000));
+		_params.put("$DUMP_PATH", _sourceSpecificURL + "interimage/" + _projectName + "/dump/" + randomGenerator.nextInt(100000));*/
+		
 	}
 	
 	private String replace(String line) {
@@ -126,6 +141,13 @@ public class PigParser {
 			
 			String last = _globalRelations.get(_globalRelations.size()-2);
     		line = line.replace("$B_LAST_RELATION",last);
+			
+		}
+		
+		if (line.contains("$LAST_GROUP")) {
+			
+			String last = _globalRelations.get(_globalRelations.size()-1);
+    		line = line.replace("$LAST_GROUP",last);
 			
 		}
 		
@@ -450,7 +472,7 @@ public class PigParser {
 				relation = _globalRelations.get(_globalRelations.size()-1);
 			}
 			
-			parsedScript = parsedScript + "STORE " + relation + " INTO '" + _params.get("$RESULT_PATH") + "' USING br.puc_rio.ele.lvc.interimage.common.udf.CompressedJsonStorage();\n";
+			parsedScript = parsedScript + "STORE " + relation + " INTO '" + _specificParams.get("$OUTPUT_PATH") + "' USING br.puc_rio.ele.lvc.interimage.common.udf.JsonStorage();\n";
 		}
 		
 		return parsedScript;
@@ -478,12 +500,12 @@ public class PigParser {
 	}
 
 	public String getResult() {
-		return _params.get("$RESULT_PATH");
+		return _specificParams.get("$OUTPUT_PATH");
 	}
 	
-	@SuppressWarnings("unchecked")
+	/*@SuppressWarnings("unchecked")
 	public Map<String, String> getOperatorInputs(String operatorName) {
 		return (Map<String, String>)_set.getOperators().get(operatorName).get("inputs");
-	}
+	}*/
 	
 }

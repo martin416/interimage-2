@@ -201,6 +201,8 @@ public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 	
 	public gClusterOperator addClusterOperator() {
 		gClusterOperator node = new gClusterOperator();
+		//TODO: Do it for other operators
+		//node.setGraph(this);
 		this.addVertex(node);
 		return node;
 	}
@@ -254,8 +256,8 @@ public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 				numberOfRunningNodes=numberOfRunningNodes+1;
 				
 				/*Setup for libs and hadoop/pig in the first run*/
-				if (setup_)
-					setup_ = false;
+				/*if (setup_)
+					setup_ = false;*/
 				
 			}
 
@@ -271,10 +273,10 @@ public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 			
 			int runningNodes = 999;
 			
-			while (true/*runningNodes > 0*/) {
+			while (runningNodes > 0) {
 			    runningNodes = run(clusterId);
-			    //System.out.println("Step");
-			    //System.out.println(runningNodes);
+			    System.out.println("Step");
+			    System.out.println(runningNodes);
 			    Thread.sleep(10000);			    
 			}
 			
@@ -282,7 +284,7 @@ public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 		    Thread.currentThread().interrupt();
 		}
 		
-		//clusterManager_.terminateCluster(clusterId);
+		clusterManager_.terminateCluster(clusterId);
 		
 		return 0;
 	}

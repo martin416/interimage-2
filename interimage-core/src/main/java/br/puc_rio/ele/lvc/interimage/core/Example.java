@@ -1,50 +1,159 @@
 package br.puc_rio.ele.lvc.interimage.core;
 
-import java.awt.image.BufferedImage;
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.URL;
-import java.net.URLConnection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Random;
 
-import javax.imageio.ImageIO;
-import javax.imageio.ImageReadParam;
-import javax.imageio.ImageReader;
-import javax.imageio.stream.ImageInputStream;
-
-import org.iq80.snappy.SnappyOutputStream;
-import org.jgrapht.EdgeFactory;
-import org.jgrapht.graph.ClassBasedEdgeFactory;
-
-import com.vividsolutions.jts.geom.Coordinate;
-import com.vividsolutions.jts.geom.Geometry;
-import com.vividsolutions.jts.io.WKBWriter;
-import com.vividsolutions.jts.io.WKTReader;
-
-import br.puc_rio.ele.lvc.interimage.common.UTMLatLongConverter;
-import br.puc_rio.ele.lvc.interimage.common.WebMercatorLatLongConverter;
 import br.puc_rio.ele.lvc.interimage.core.project.Project;
-import br.puc_rio.ele.lvc.interimage.core.ruleset.RuleSet;
-import br.puc_rio.ele.lvc.interimage.core.operatorgraph.OperatorSet;
 import br.puc_rio.ele.lvc.interimage.core.operatorgraph.PigParser;
 import br.puc_rio.ele.lvc.interimage.core.operatorgraph.gClusterOperator;
 import br.puc_rio.ele.lvc.interimage.core.operatorgraph.gController;
-import br.puc_rio.ele.lvc.interimage.core.operatorgraph.gEdge;
-import br.puc_rio.ele.lvc.interimage.core.operatorgraph.gMortarOperator;
-import br.puc_rio.ele.lvc.interimage.core.operatorgraph.gNode;
 import br.puc_rio.ele.lvc.interimage.geometry.ShapefileConverter;
 
 public class Example {
+	
+	public static void runTessio() {
+		
+		Locale locale = new Locale("en", "US");
+		Locale.setDefault(locale);
+		
+		Project project = new Project();		
+		project.readOldFile("C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\tessio.gap", false);		
+		Properties props = project.getProperties();
+		
+		Random randomGenerator = new Random();
+		
+		int clusterSize = Integer.parseInt(props.getProperty("interimage.clusterSize"));
+		double tileSizeMeters = Double.parseDouble(props.getProperty("interimage.tileSizeMeters"));		
+		
+		PigParser parser = new PigParser();
+		parser.setup(props);
+		
+		gController g = new gController();
+		g.setProperties(props);		
+		
+		/*First operator executes a segmentation*/
+		
+		gClusterOperator op1 = g.addClusterOperator();
+		
+		op1.setParser(parser);
+		op1.setOperatorName("MutualMultiresolutionSegmentation");
+		op1.setProperties(props);
+		op1.setParameter("$IMAGE_KEY","image");
+		op1.setParameter("$SCALE","21");
+		op1.setParameter("$WCOLOR","0.75");
+		op1.setParameter("$WCOMPACTNESS","0.61");
+		op1.setParameter("$WBANDS","0.24,0.07,0.42,0.26");
+		op1.setParameter("$CLASS","Unknown");
+		op1.setParameter("$RELIABILITY","0.3");
+		op1.setParameter("$STORE","true");
+		op1.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/" + randomGenerator.nextInt(100000));
+		
+		/*Map<String,String> params = new HashMap<String, String>();
+		
+		params.put("$IMAGE_KEY","image");
+		params.put("$SCALE","21");
+		params.put("$WCOLOR","0.75");
+		params.put("$WCOMPACTNESS","0.61");
+		params.put("$WBANDS","0.24,0.07,0.42,0.26");
+		//params.put("$ROI",parser.getExport().get("Soil"));
+		params.put("$CLASS","Unknown");
+		params.put("$RELIABILITY","0.3");
+		//params.put("$INPUT.ROI","true");
+		params.put("$STORE","true");		
+		params.put("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/" + randomGenerator.nextInt(100000));
+		
+		op1.setParameters(params);*/
+						
+		/*Second operator executes a rule set*/
+		
+		gClusterOperator op2 = g.addClusterOperator();
+		
+		String script2 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n" 
+				+ "DEFINE SpectralFeatures br.puc_rio.ele.lvc.interimage.data.udf.SpectralFeatures('$IMAGES_PATH','mean2 = mean(image_layer2);mean3 = mean(image_layer3);ratio4 = ratio(image_layer4);','" + String.valueOf(tileSizeMeters) + "');\n\n"
+				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n" 
+				+ "group = II_SpectralFeatures($LAST_RELATION," + String.valueOf(clusterSize-1) + ");\n\n"
+				+ "selection = FILTER $LAST_RELATION BY properties#'ratio4' > 0.2988;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Grass',II_Min(II_Membership('ml2grass',properties#'mean2'), II_Membership('ml3grass',properties#'mean3')),properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Trees',II_Min(II_Membership('ml2trees',properties#'mean2'), II_Membership('ml3trees',properties#'mean3')),properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n";
+		
+		/*Map<String,String> params2 = new HashMap<String, String>();
+		
+		//params2.put("$RELIABILITY","0.3");
+		params2.put("$STORE","true");		
+		params2.put("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/" + randomGenerator.nextInt(100000));
+		
+		op2.setParameters(params2);*/
+	
+		op2.setParser(parser);
+		op2.setProperties(props);
+		op2.setScript(script2);
+		op2.setParameter("$STORE","true");
+		op2.setParameter("$INPUT_PATH", op1.getOutputPath());
+		op2.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/" + randomGenerator.nextInt(100000));
+				
+		g.addEdge(op1, op2);
+		
+		/*Third operator executes a rule set*/
+		
+		gClusterOperator op3 = g.addClusterOperator();
+		
+		//TODO: It's possible to optimize this rule, defining a single selection for Dark, Grey and BrightGrey classes
+		
+		String script3 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n" 
+				+ "DEFINE SpectralFeatures br.puc_rio.ele.lvc.interimage.data.udf.SpectralFeatures('$IMAGES_PATH','brightness = mean(image);mean1 = mean(image_layer1);bandMeanDiv31 = bandMeanDiv(image_layer3,image_layer1);maxPixVal1 = maxPixelValue(image_layer1);ratio2 = ratio(image_layer2);','" + String.valueOf(tileSizeMeters) + "');\n\n"
+				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n" 
+				+ "group = II_SpectralFeatures($LAST_RELATION," + String.valueOf(clusterSize-1) + ");\n\n"
+				+ "wfeatures = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(II_Area(geometry),'area',properties) as properties;\n\n"
+				
+				+ "selection = FILTER $LAST_RELATION BY properties#'brightness' > 208;\n\n"				
+				+ "bright = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Bright', 1.0, properties) as properties;\n\n"
+				
+				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' < 0.2976) OR ((properties#'ratio2' > 0.2976) AND (properties#'maxPixVal1' < 116));\n\n"				
+				+ "dark = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Dark',II_Min(II_Membership('ml1dark',properties#'mean1'), II_Membership('bdark',properties#'brightness')),properties) as properties;\n\n"
+				
+				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' < 0.2976) OR ((properties#'ratio2' > 0.2976) AND (properties#'maxPixVal1' < 116));\n\n"				
+				+ "grey = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Grey',II_Min(II_Membership('ml1grey',properties#'mean1'), II_Membership('bgrey',properties#'brightness')),properties) as properties;\n\n"
+				
+				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' < 0.2976) OR ((properties#'ratio2' > 0.2976) AND (properties#'maxPixVal1' < 116));\n\n"				
+				+ "brightgrey = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('BrightGrey',II_Min(II_Membership('ml1brightgrey',properties#'mean1'), II_Membership('bbrightgrey',properties#'brightness')),properties) as properties;\n\n"
+				
+				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' < 0.355) AND (properties#'brightness' < 208) AND (properties#'bandMeanDiv31' < 1.5) AND (properties#'maxPixelVal1' > 116) AND (properties#'ratio2' > 0.2976);\n\n"
+				+ "blue = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Blue', 0.0, properties) as properties;\n\n"
+				
+				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' > 0.355) OR ((properties#'ratio2' < 0.355) AND (properties#'area' < 80));\n\n"
+				+ "pools = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Pools', 0.0, properties) as properties;\n\n"
+				
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n";
+		
+		/*Map<String,String> params3 = new HashMap<String, String>();
+
+		//params2.put("$RELIABILITY","0.3");
+		params3.put("$STORE","true");
+		params3.put("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/" + randomGenerator.nextInt(100000));
+		
+		op3.setParameters(params3);*/
+		
+		op3.setParser(parser);
+		op3.setProperties(props);
+		op3.setScript(script3);
+		op3.setParameter("$STORE","true");
+		op3.setParameter("$INPUT_PATH", op1.getOutputPath());
+		op3.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/" + randomGenerator.nextInt(100000));
+				
+		g.addEdge(op1, op3);
+		
+		op1.run(null, "", true);		
+		op2.run(null, "", false);
+		op3.run(null, "", false);
+		
+		//g.execute();
+		
+	}
 	
 	public static void runCluster() {
 		
@@ -79,7 +188,7 @@ public class Example {
 		//params.put("$INPUT.ROI","true");
 		params.put("$STORE","true");
 		
-		op1.setParameters(params);
+		//op1.setParameters(params);
 		
 		op1.prepare();
 		
@@ -156,13 +265,23 @@ public class Example {
 		
 		Project project = new Project();
 		
-		project.readOldFile("C:\\Users\\Rodrigo\\Documents\\workshop\\exercise13\\exercise13.gap", false);
+		project.readOldFile("C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\tessio.gap", false);
+		
+	}
+	
+	public static void JSONToShapefile() {
+		
+		ShapefileConverter.JSONToShapefile("C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\resultados_class_vegetacao\\part-r-00000","C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\resultados_class_vegetacao\\part-r-00000.shp", null, true, null, null, false);
 		
 	}
 	
 	public static void main(String[] args) {
 
-		runCluster();
+		//JSONToShapefile();
+		
+		runTessio();		
+		
+		//runCluster();
 		
 		//runSegmentation();
 		

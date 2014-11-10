@@ -15,6 +15,7 @@ limitations under the License.*/
 package br.puc_rio.ele.lvc.interimage.core.operatorgraph;
 
 import java.io.File;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
@@ -34,32 +35,64 @@ public class gClusterOperator extends gOperator {
 	private String operatorName_;
 	private Properties properties_;
 	private Map<String,String> parameters_;
+	private String script_;
 	
 	public gClusterOperator() {
-		parser_ = new PigParser();
+		parameters_ = new HashMap<String, String>();
+	}
+	
+	public void setParser(PigParser parser) {
+		parser_ = parser;
 	}
 		
 	public void setOperatorName(String operatorName) {
 		operatorName_ = operatorName;
 	}
 	
+	public void setScript(String script) {
+		script_ = script;
+	}
+	
 	public void setProperties(Properties properties) {
 		properties_ = properties;
 	}
 	
-	public void setParameters(Map<String,String> parameters) {
+	/*public void setParameters(Map<String,String> parameters) {
 		parameters_ = parameters;
+	}*/
+	
+	public void setParameter(String key, String value) {
+		parameters_.put(key, value);
 	}
 	
 	/** This method must be called after the configuration of the operator and before its execution.*/	
 	public void prepare() {		
-		parser_.setup(properties_);						
 		parser_.setParams(parameters_);
 	}
-	
+		
 	/** This method executes a Pig script on the given cluster.*/
 	@Override
 	protected int execute(ClusterManager clusterManager, String clusterId, boolean setup) {
+						
+		/*Setting input paths from previous nodes output paths*/
+		
+		/*DefaultDirectedGraph<gNode, gEdge> graph = getGraph();
+		
+		Set<gEdge> edges = graph.incomingEdgesOf(this);
+		
+		int count = 1;
+		
+		for (gEdge edge : edges) {
+			gClusterOperator node = (gClusterOperator)graph.getEdgeSource(edge);			
+			parameters_.put("$INPUT_PATH_" + String.valueOf(count), node.getOutputPath());
+			
+			//System.out.println("$INPUT_PATH_" + String.valueOf(count) + ": " + node.getOutputPath());
+			
+			count++;
+		}*/
+		
+		/*Passing parameters to the parser*/
+		prepare();
 				
 		StringBuilder script = new StringBuilder();
 		
@@ -99,16 +132,25 @@ public class gClusterOperator extends gOperator {
 			script.append("IMPORT '" + properties_.getProperty("interimage.sourceSpecificURL") + "interimage/scripts/interimage-import.pig';\n");
 			
 		}
-				
-		script.append(parser_.parse(operatorName_));
+		
+		if (script_ == null)
+			script.append(parser_.parse(operatorName_));
+		else
+			script.append(parser_.parse(script_));
+		
+		//setOutputPath(parser_.getResult());
 		
 		System.out.println(script);
 		
-		clusterManager.runPigScript(script.toString(), clusterId);
+		//clusterManager.runPigScript(script.toString(), clusterId);
 		
 		return 0;
 	}
 
+	public String getOutputPath() {
+		return parameters_.get("$OUTPUT_PATH");
+	}
+	
 	@Override
 	public JSONObject exportToJSON() {
 		//TODO: Implement this

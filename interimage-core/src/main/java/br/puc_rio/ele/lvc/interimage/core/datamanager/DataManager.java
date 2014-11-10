@@ -94,39 +94,38 @@ public class DataManager {
 			if (rsrc.getType() == DefaultResource.TILE) {
 				
 				try {
-					
-					@SuppressWarnings("unchecked")
-					List<Tile> tiles = (List<Tile>)rsrc.getObject();
-					
-					OutputStream stream = new FileOutputStream(projectPath + "tiles.ser");
-				    ObjectOutputStream out = new ObjectOutputStream(stream);
-					
-				    out.writeObject(tiles);
-				    
-				    out.close();
-				    
-				    //TODO: Just for test purposes
-				    FileWriter fw = new FileWriter(projectPath + "tiles.wkt");
-					BufferedWriter bw = new BufferedWriter(fw);
-				    	
-					//Test: single file for tiles
-					FileWriter ftw = new FileWriter(projectPath + "tiles.json");
-					BufferedWriter btw = new BufferedWriter(ftw);
-					
-					/*Cleaning folder*/
+									    					
 					File path = new File(projectPath + "tiles/");
 					
 					if (!path.exists()) {
 					
+						@SuppressWarnings("unchecked")
+						List<Tile> tiles = (List<Tile>)rsrc.getObject();
+						
+						OutputStream stream = new FileOutputStream(projectPath + "tiles.ser");
+					    ObjectOutputStream out = new ObjectOutputStream(stream);
+						
+					    out.writeObject(tiles);
+					    
+					    out.close();
+						
+						//TODO: Just for test purposes
+					    FileWriter fw = new FileWriter(projectPath + "tiles.wkt");
+						BufferedWriter bw = new BufferedWriter(fw);
+					    	
+						//Test: single file for tiles
+						//FileWriter ftw = new FileWriter(projectPath + "tiles.json");
+						//BufferedWriter btw = new BufferedWriter(ftw);
+						
 						path.mkdirs();
 						
-						for (final File fileEntry : path.listFiles()) {
+						/*for (final File fileEntry : path.listFiles()) {
 					        if (fileEntry.isDirectory()) {
 					        	//ignore
 					        } else {
 					        	fileEntry.delete();
 					        }
-					    }
+					    }*/
 						
 					    for (Tile tile : tiles) {
 					    	bw.write(tile.getGeometry() + "\n");
@@ -143,15 +142,15 @@ public class DataManager {
 			                str += ",\"properties\":{\"tile\":\"" + tile.getCode() + "\",\"crs\":\"" + tileManager.getCRS() + "\",\"class\":\"None\",\"iiuuid\":\"" + id + "\"}}\n";
 					    	out2.write(str.getBytes());
 					    	
-					    	btw.write(str);
+					    	//btw.write(str);
 					    	
 					    	out2.close();
 					    }
 					    
-					    btw.close();
+					    //btw.close();
 					    bw.close();
 					    
-					    //ShapefileConverter.WKTToShapefile(projectPath + "tiles.wkt", projectPath + "tiles.shp", null, null);
+					    ShapefileConverter.WKTToShapefile(projectPath + "tiles.wkt", projectPath + "tiles.shp", null, null);
 					    
 					}
 					    

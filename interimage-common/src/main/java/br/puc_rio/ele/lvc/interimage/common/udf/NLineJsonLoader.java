@@ -94,7 +94,7 @@ public class NLineJsonLoader extends LoadFunc implements LoadMetadata {
         // We will use TextInputFormat, the default Hadoop input format for
         // text.  It has a LongWritable key that we will ignore, and the value
         // is a Text (a string writable) that the JSON data is in.
-        return new NLineInputFormat();
+        return new TextInputFormat();
     }
 
     public LoadCaster getLoadCaster() throws IOException {

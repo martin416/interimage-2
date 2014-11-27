@@ -1,12 +1,16 @@
 package br.puc_rio.ele.lvc.interimage.core;
 
 import java.io.FileOutputStream;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Random;
 
+import com.vividsolutions.jts.geom.Geometry;
+import com.vividsolutions.jts.io.WKTReader;
+
+import br.puc_rio.ele.lvc.interimage.common.SpatialIndex;
 import br.puc_rio.ele.lvc.interimage.core.project.Project;
 import br.puc_rio.ele.lvc.interimage.core.operatorgraph.PigParser;
 import br.puc_rio.ele.lvc.interimage.core.operatorgraph.gClusterOperator;
@@ -24,22 +28,22 @@ public class Example {
 		project.readOldFile("C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\tessio.gap", false);		
 		Properties props = project.getProperties();
 		
-		Random randomGenerator = new Random();
+		//Random randomGenerator = new Random();
 		
-		int clusterSize = Integer.parseInt(props.getProperty("interimage.clusterSize"));
+		//int clusterSize = Integer.parseInt(props.getProperty("interimage.clusterSize"));
 		double tileSizeMeters = Double.parseDouble(props.getProperty("interimage.tileSizeMeters"));		
 		
-		PigParser parser = new PigParser();
-		parser.setup(props);
+		//PigParser parser = new PigParser();
+		//parser.setup(props);
 		
-		gController g = new gController();
-		g.setProperties(props);		
+		gController g1 = new gController();
+		g1.setProperties(props);		
 		
-		/*First operator executes a segmentation*/
+		/*First operator executes a segmentation for vegetated areas*/
 		
-		gClusterOperator op1 = g.addClusterOperator();
+		gClusterOperator op1 = g1.addClusterOperator();
 		
-		op1.setParser(parser);
+		//op1.setParser(parser);
 		op1.setOperatorName("MutualMultiresolutionSegmentation");
 		op1.setProperties(props);
 		op1.setParameter("$IMAGE_KEY","image");
@@ -50,7 +54,7 @@ public class Example {
 		op1.setParameter("$CLASS","Unknown");
 		op1.setParameter("$RELIABILITY","0.3");
 		op1.setParameter("$STORE","true");
-		op1.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/" + randomGenerator.nextInt(100000));
+		op1.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op1_segmentation" /*+ randomGenerator.nextInt(100000)*/);
 		
 		/*Map<String,String> params = new HashMap<String, String>();
 		
@@ -68,14 +72,14 @@ public class Example {
 		
 		op1.setParameters(params);*/
 						
-		/*Second operator executes a rule set*/
+		/*Second operator executes trees / grass classification*/
 		
-		gClusterOperator op2 = g.addClusterOperator();
+		gClusterOperator op2 = g1.addClusterOperator();
 		
 		String script2 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n" 
 				+ "DEFINE SpectralFeatures br.puc_rio.ele.lvc.interimage.data.udf.SpectralFeatures('$IMAGES_PATH','mean2 = mean(image_layer2);mean3 = mean(image_layer3);ratio4 = ratio(image_layer4);','" + String.valueOf(tileSizeMeters) + "');\n\n"
 				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n" 
-				+ "group = II_SpectralFeatures($LAST_RELATION," + String.valueOf(clusterSize-1) + ");\n\n"
+				+ "group = II_SpectralFeatures($LAST_RELATION, $PARALLEL);\n\n"
 				+ "selection = FILTER $LAST_RELATION BY properties#'ratio4' > 0.2988;\n\n"
 				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Grass',II_Min(II_Membership('ml2grass',properties#'mean2'), II_Membership('ml3grass',properties#'mean3')),properties) as properties;\n\n"
 				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Trees',II_Min(II_Membership('ml2trees',properties#'mean2'), II_Membership('ml3trees',properties#'mean3')),properties) as properties;\n\n"
@@ -89,47 +93,56 @@ public class Example {
 		
 		op2.setParameters(params2);*/
 	
-		op2.setParser(parser);
+		//op2.setParser(parser);
 		op2.setProperties(props);
 		op2.setScript(script2);
 		op2.setParameter("$STORE","true");
 		op2.setParameter("$INPUT_PATH", op1.getOutputPath());
-		op2.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/" + randomGenerator.nextInt(100000));
+		op2.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op2_vegetation" /*+ randomGenerator.nextInt(100000)*/);
 				
-		g.addEdge(op1, op2);
+		g1.addEdge(op1, op2);
 		
-		/*Third operator executes a rule set*/
+		/*Third operator executes grey / blue / pools classification*/
 		
-		gClusterOperator op3 = g.addClusterOperator();
+		gClusterOperator op3 = g1.addClusterOperator();
 		
 		//TODO: It's possible to optimize this rule, defining a single selection for Dark, Grey and BrightGrey classes
+		//TODO: Consider a different segmentation for these classes
 		
 		String script3 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n" 
-				+ "DEFINE SpectralFeatures br.puc_rio.ele.lvc.interimage.data.udf.SpectralFeatures('$IMAGES_PATH','brightness = mean(image);mean1 = mean(image_layer1);bandMeanDiv31 = bandMeanDiv(image_layer3,image_layer1);maxPixVal1 = maxPixelValue(image_layer1);ratio2 = ratio(image_layer2);','" + String.valueOf(tileSizeMeters) + "');\n\n"
+				+ "DEFINE SpectralFeatures br.puc_rio.ele.lvc.interimage.data.udf.SpectralFeatures('$IMAGES_PATH','brightness = brightness(image);mean1 = mean(image_layer1);bandMeanDiv31 = bandMeanDiv(image_layer3,image_layer1);maxPixVal1 = maxPixelValue(image_layer1);ratio2 = ratio(image_layer2);','" + String.valueOf(tileSizeMeters) + "');\n\n"
 				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n" 
-				+ "group = II_SpectralFeatures($LAST_RELATION," + String.valueOf(clusterSize-1) + ");\n\n"
+				+ "group = II_SpectralFeatures($LAST_RELATION, $PARALLEL);\n\n"
 				+ "wfeatures = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(II_Area(geometry),'area',properties) as properties;\n\n"
 				
 				+ "selection = FILTER $LAST_RELATION BY properties#'brightness' > 208;\n\n"				
 				+ "bright = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Bright', 1.0, properties) as properties;\n\n"
+				+ "bright = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
 				
 				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' < 0.2976) OR ((properties#'ratio2' > 0.2976) AND (properties#'maxPixVal1' < 116));\n\n"				
 				+ "dark = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Dark',II_Min(II_Membership('ml1dark',properties#'mean1'), II_Membership('bdark',properties#'brightness')),properties) as properties;\n\n"
+				+ "dark = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
 				
 				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' < 0.2976) OR ((properties#'ratio2' > 0.2976) AND (properties#'maxPixVal1' < 116));\n\n"				
 				+ "grey = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Grey',II_Min(II_Membership('ml1grey',properties#'mean1'), II_Membership('bgrey',properties#'brightness')),properties) as properties;\n\n"
+				+ "grey = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
 				
 				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' < 0.2976) OR ((properties#'ratio2' > 0.2976) AND (properties#'maxPixVal1' < 116));\n\n"				
 				+ "brightgrey = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('BrightGrey',II_Min(II_Membership('ml1brightgrey',properties#'mean1'), II_Membership('bbrightgrey',properties#'brightness')),properties) as properties;\n\n"
+				+ "brightgrey = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
 				
-				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' < 0.355) AND (properties#'brightness' < 208) AND (properties#'bandMeanDiv31' < 1.5) AND (properties#'maxPixelVal1' > 116) AND (properties#'ratio2' > 0.2976);\n\n"
+				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' < 0.355) AND (properties#'brightness' < 208) AND (properties#'bandMeanDiv31' < 1.5) AND (properties#'maxPixVal1' > 116) AND (properties#'ratio2' > 0.2976);\n\n"
 				+ "blue = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Blue', 0.0, properties) as properties;\n\n"
+				+ "blue = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
 				
 				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' > 0.355) OR ((properties#'ratio2' < 0.355) AND (properties#'area' < 80));\n\n"
 				+ "pools = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Pools', 0.0, properties) as properties;\n\n"
+				+ "pools = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"				
 				
-				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n";
-		
+				+ "group = COGROUP bright_2 BY properties#'tile', dark_2 BY properties#'tile', grey_2 BY properties#'tile', brightgrey_2 BY properties#'tile', blue_2 BY properties#'tile', pools_2 BY properties#'tile' PARALLEL $PARALLEL;\n\n"
+				
+				+ "projection = FOREACH $LAST_RELATION GENERATE FLATTEN(II_SpatialResolve(bright_2, dark_2, grey_2, brightgrey_2, blue_2, pools_2)) AS (geometry:bytearray, data:map[], properties:map[]);\n\n";
+										
 		/*Map<String,String> params3 = new HashMap<String, String>();
 
 		//params2.put("$RELIABILITY","0.3");
@@ -138,20 +151,124 @@ public class Example {
 		
 		op3.setParameters(params3);*/
 		
-		op3.setParser(parser);
+		//op3.setParser(parser);
 		op3.setProperties(props);
 		op3.setScript(script3);
 		op3.setParameter("$STORE","true");
 		op3.setParameter("$INPUT_PATH", op1.getOutputPath());
-		op3.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/" + randomGenerator.nextInt(100000));
+		op3.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op3_other_classes" /*+ randomGenerator.nextInt(100000)*/);
 				
-		g.addEdge(op1, op3);
+		g1.addEdge(op1, op3);
 		
-		op1.run(null, "", true);		
-		op2.run(null, "", false);
-		op3.run(null, "", false);
+		/*Fourth operator executes shadow classification*/
 		
-		//g.execute();
+		gClusterOperator op4 = g1.addClusterOperator();
+				
+		//op4.setParser(parser);
+		op4.setOperatorName("Limiarization");
+		op4.setProperties(props);
+		op4.setParameter("$IMAGE_KEY", "image");
+		op4.setParameter("$THRESHOLDS", "0,20");
+		op4.setParameter("$CLASSES", "Shadow");
+		op4.setParameter("$OPERATION", "Brightness");
+		op4.setParameter("$MIN_AREA", String.valueOf(5.0*Double.parseDouble(props.getProperty("interimage.minResolution"))));
+		op4.setParameter("$RELIABILITY", "0.3");
+		op4.setParameter("$STORE","true");
+		//op4.setParameter("$INPUT_PATH", op1.getOutputPath());
+		op4.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op4_shadow" /*+ randomGenerator.nextInt(100000)*/);
+				
+		//g.addEdge(op1, op4);
+		
+		/*Fifth operator executes red roofs classification*/
+		
+		//TODO: consider bare soil shape file
+		//TODO: consider a different segmentation for these classes
+		
+		gClusterOperator op5 = g1.addClusterOperator();
+		
+		String script5 = "DEFINE SpectralFeatures br.puc_rio.ele.lvc.interimage.data.udf.SpectralFeatures('$IMAGES_PATH','bandMeanDiv31 = bandMeanDiv(image_layer3,image_layer1);','" + String.valueOf(tileSizeMeters) + "');\n\n"
+				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n" 
+				+ "group = II_SpectralFeatures($LAST_RELATION, $PARALLEL);\n\n"
+				+ "selection = FILTER $LAST_RELATION BY properties#'bandMeanDiv31' > 1.5;\n\n"				
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('CeramicRoof', 0.8, properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n";
+		
+		//op5.setParser(parser);
+		op5.setProperties(props);
+		op5.setScript(script5);
+		op5.setParameter("$STORE","true");
+		op5.setParameter("$INPUT_PATH", op1.getOutputPath());
+		op5.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op5_ceramic_roof" /*+ randomGenerator.nextInt(100000)*/);
+				
+		g1.addEdge(op1, op5);
+		
+		/*Spatial resolve*/
+		
+		gClusterOperator op6 = g1.addClusterOperator();
+		
+		String script6 = "DEFINE II_SelectClass br.puc_rio.ele.lvc.interimage.common.udf.SelectClass('$SEMANTICNET_FILE');\n\n" 
+				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n" 
+				+ "selection = FILTER load_1 BY II_SelectClass(properties#'class','Shadow');\n\n"
+				+ "shadow = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(1.0, 'membership', properties) as properties;\n\n"
+				+ "selection = FILTER load_1 BY II_SelectClass(properties#'class','CeramicRoof');\n\n"
+				+ "ceramicroof = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(0.8, 'membership', properties) as properties;\n\n"
+				+ "selection = FILTER load_1 BY II_SelectClass(properties#'class','OtherClasses');\n\n"
+				+ "otherclasses = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(0.4, 'membership', properties) as properties;\n\n"
+				+ "selection = FILTER load_1 BY II_SelectClass(properties#'class','Vegetation');\n\n"
+				+ "vegetation = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(0.6, 'membership', properties) as properties;\n\n"
+				+ "group = COGROUP shadow_1 BY properties#'tile', ceramicroof_1 BY properties#'tile', otherclasses_1 BY properties#'tile', vegetation_1 BY properties#'tile' PARALLEL $PARALLEL;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE FLATTEN(II_SpatialResolve(shadow_1, ceramicroof_1, otherclasses_1, vegetation_1)) AS (geometry:bytearray, data:map[], properties:map[]);\n\n";
+		
+		//op6.setParser(parser);
+		op6.setProperties(props);
+		op6.setScript(script6);
+		op6.setParameter("$STORE","true");
+		op6.setParameter("$INPUT_PATH", op2.getOutputPath() + "," + op3.getOutputPath() + "," + op4.getOutputPath() + "," + op5.getOutputPath());
+		op6.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op6_all" /*+ randomGenerator.nextInt(100000)*/);
+				
+		g1.addEdge(op2, op6);
+		g1.addEdge(op3, op6);
+		g1.addEdge(op4, op6);
+		g1.addEdge(op5, op6);
+		
+		//op1.run(null, "", true);		
+		//op2.run(null, "", false);
+		//op3.run(null, "", false);
+		//op4.run(null, "", false);
+		//op5.run(null, "", false);
+		//op6.run(null, "", false);
+		
+		//g1.execute();
+	
+		
+		/*Second project*/
+		
+		
+		gController g2 = new gController();
+		g2.setProperties(props);		
+		
+		/*operator classifies land use*/
+		
+		gClusterOperator op7 = g2.addClusterOperator();
+		
+		String script7 = "DEFINE AggregationFeatures br.puc_rio.ele.lvc.interimage.geometry.udf.AggregationFeatures('max_area_pools = max(area,'Pools');sum_area_vegetation = sum(area, 'Vegetation');max_rect_building_shadow = max(rectangle_fit, 'BuildingShadow');count_building_shadow = count('BuildingShadow');sum_area_ceramic_roof = sum(area,'CeramicRoof');count_ceramic_roof = count('CeramicRoof');');\n\n"
+				+ "blocks = LOAD '$AUX_INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
+				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
+				+ "group = COGROUP load_1 BY properties#'parent', blocks_1 BY properties#'iiuuid' PARALLEL $PARALLEL;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE FLATTEN(II_AggregationFeatures(blocks_1, load_1)) AS (geometry:bytearray, data:map[], properties:map[]);\n\n"
+				+ "\n\n";
+		
+		//op6.setParser(parser);
+		op7.setProperties(props);
+		op7.setScript(script7);
+		op7.setParameter("$AUX_INPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/resources/shapes/blocks");
+		op7.setParameter("$STORE","true");
+		op7.setParameter("$INPUT_PATH", op6.getOutputPath());
+		op7.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op7_blocks" /*+ randomGenerator.nextInt(100000)*/);
+		
+		op7.run(null, "", false);
+		
+		//g2.execute();
 		
 	}
 	
@@ -271,15 +388,53 @@ public class Example {
 	
 	public static void JSONToShapefile() {
 		
-		ShapefileConverter.JSONToShapefile("C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\resultados_class_vegetacao\\part-r-00000","C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\resultados_class_vegetacao\\part-r-00000.shp", null, true, null, null, false);
+		//ShapefileConverter.JSONToShapefile("C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\resultados_class_final\\part-r-00000","C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\resultados_class_final\\part-r-00000.shp", Arrays.asList("crs", "tile", "membership", "iiuuid", "class"), true, null, null, false);
+		
+		ShapefileConverter.WKTToShapefile("C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\tiles.wkt", "C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\tiles.shp", null, null);
+		
+	}
+	
+	public static void test() {
+		
+		try {
+	
+			Geometry geom1 = new WKTReader().read("POLYGON ((323739.00011466 7388895.599939319, 323739.00011466 7388896.199939339, 323739.60011468 7388896.199939339, 323739.60011468 7388896.79993936, 323739.60011468 7388897.39993938, 323740.2001147 7388897.39993938, 323740.80011472 7388897.39993938, 323741.40011474 7388897.39993938, 323742.00011476 7388897.39993938, 323742.60011478 7388897.39993938, 323742.60011478 7388896.79993936, 323742.60011478 7388896.199939339, 323742.60011478 7388895.599939319, 323742.60011478 7388894.9999393, 323743.2001148 7388894.9999393, 323743.80011482 7388894.9999393, 323743.80011482 7388894.39993928, 323744.40011484 7388894.39993928, 323744.40011484 7388893.79993926, 323745.00011486 7388893.79993926, 323745.60011488 7388893.79993926, 323746.2001149 7388893.79993926, 323746.80011492 7388893.79993926, 323746.80011492 7388893.19993924, 323746.80011492 7388892.59993922, 323746.80011492 7388891.9999392, 323746.80011492 7388891.399939179, 323746.80011492 7388890.799939159, 323747.40011494 7388890.799939159, 323747.40011494 7388890.199939139, 323746.80011492 7388890.199939139, 323746.80011492 7388889.59993912, 323746.2001149 7388889.59993912, 323746.2001149 7388888.9999391, 323746.2001149 7388888.39993908, 323746.2001149 7388887.79993906, 323746.2001149 7388887.19993904, 323746.2001149 7388886.599939019, 323746.2001149 7388885.999938999, 323745.60011488 7388885.999938999, 323745.60011488 7388885.39993898, 323745.60011488 7388884.79993896, 323745.60011488 7388884.19993894, 323745.60011488 7388883.59993892, 323745.60011488 7388882.9999389, 323745.00011486 7388882.9999389, 323744.40011484 7388882.9999389, 323744.40011484 7388883.59993892, 323744.40011484 7388884.19993894, 323744.40011484 7388884.79993896, 323745.00011486 7388884.79993896, 323745.00011486 7388885.39993898, 323745.00011486 7388885.999938999, 323745.00011486 7388886.599939019, 323745.00011486 7388887.19993904, 323745.00011486 7388887.79993906, 323745.00011486 7388888.39993908, 323745.00011486 7388888.9999391, 323745.00011486 7388889.59993912, 323745.00011486 7388890.199939139, 323745.00011486 7388890.799939159, 323744.40011484 7388890.799939159, 323744.40011484 7388891.399939179, 323744.40011484 7388891.9999392, 323744.40011484 7388892.59993922, 323743.80011482 7388892.59993922, 323743.2001148 7388892.59993922, 323742.60011478 7388892.59993922, 323742.00011476 7388892.59993922, 323742.00011476 7388891.9999392, 323742.00011476 7388891.399939179, 323741.40011474 7388891.399939179, 323740.80011472 7388891.399939179, 323740.80011472 7388891.9999392, 323740.2001147 7388891.9999392, 323739.60011468 7388891.9999392, 323739.60011468 7388892.59993922, 323739.60011468 7388893.19993924, 323739.60011468 7388893.79993926, 323740.2001147 7388893.79993926, 323740.80011472 7388893.79993926, 323740.80011472 7388893.19993924, 323741.40011474 7388893.19993924, 323742.00011476 7388893.19993924, 323742.00011476 7388893.79993926, 323742.00011476 7388894.39993928, 323741.40011474 7388894.39993928, 323741.40011474 7388894.9999393, 323740.80011472 7388894.9999393, 323740.2001147 7388894.9999393, 323739.60011468 7388894.9999393, 323739.00011466 7388894.9999393, 323739.00011466 7388895.599939319))");
+
+			Geometry geom2 = new WKTReader().read("POLYGON ((323736.60011458 7388889.59993912, 323736.60011458 7388890.199939139, 323736.60011458 7388890.799939159, 323736.60011458 7388891.399939179, 323736.60011458 7388891.9999392, 323736.60011458 7388892.59993922, 323737.2001146 7388892.59993922, 323737.2001146 7388893.19993924, 323737.2001146 7388893.79993926, 323737.2001146 7388894.39993928, 323737.2001146 7388894.9999393, 323737.80011462 7388894.9999393, 323738.40011464 7388894.9999393, 323739.00011466 7388894.9999393, 323739.60011468 7388894.9999393, 323740.2001147 7388894.9999393, 323740.80011472 7388894.9999393, 323741.40011474 7388894.9999393, 323741.40011474 7388894.39993928, 323742.00011476 7388894.39993928, 323742.00011476 7388893.79993926, 323742.00011476 7388893.19993924, 323741.40011474 7388893.19993924, 323740.80011472 7388893.19993924, 323740.80011472 7388893.79993926, 323740.2001147 7388893.79993926, 323739.60011468 7388893.79993926, 323739.60011468 7388893.19993924, 323739.60011468 7388892.59993922, 323739.60011468 7388891.9999392, 323740.2001147 7388891.9999392, 323740.80011472 7388891.9999392, 323740.80011472 7388891.399939179, 323741.40011474 7388891.399939179, 323742.00011476 7388891.399939179, 323742.00011476 7388891.9999392, 323742.00011476 7388892.59993922, 323742.60011478 7388892.59993922, 323743.2001148 7388892.59993922, 323743.80011482 7388892.59993922, 323744.40011484 7388892.59993922, 323744.40011484 7388891.9999392, 323744.40011484 7388891.399939179, 323744.40011484 7388890.799939159, 323745.00011486 7388890.799939159, 323745.00011486 7388890.199939139, 323745.00011486 7388889.59993912, 323745.00011486 7388888.9999391, 323745.00011486 7388888.39993908, 323745.00011486 7388887.79993906, 323745.00011486 7388887.19993904, 323745.00011486 7388886.599939019, 323745.00011486 7388885.999938999, 323745.00011486 7388885.39993898, 323745.00011486 7388884.79993896, 323744.40011484 7388884.79993896, 323744.40011484 7388884.19993894, 323743.80011482 7388884.19993894, 323743.80011482 7388883.59993892, 323743.2001148 7388883.59993892, 323743.2001148 7388884.19993894, 323742.60011478 7388884.19993894, 323742.00011476 7388884.19993894, 323741.40011474 7388884.19993894, 323740.80011472 7388884.19993894, 323740.2001147 7388884.19993894, 323740.2001147 7388883.59993892, 323739.60011468 7388883.59993892, 323739.60011468 7388884.19993894, 323739.60011468 7388884.79993896, 323739.60011468 7388885.39993898, 323739.60011468 7388885.999938999, 323739.60011468 7388886.599939019, 323739.60011468 7388887.19993904, 323739.60011468 7388887.79993906, 323739.60011468 7388888.39993908, 323739.60011468 7388888.9999391, 323739.60011468 7388889.59993912, 323739.60011468 7388890.199939139, 323739.00011466 7388890.199939139, 323739.00011466 7388890.799939159, 323739.00011466 7388891.399939179, 323738.40011464 7388891.399939179, 323738.40011464 7388890.799939159, 323737.80011462 7388890.799939159, 323737.80011462 7388890.199939139, 323737.80011462 7388889.59993912, 323737.80011462 7388888.9999391, 323737.2001146 7388888.9999391, 323736.60011458 7388888.9999391, 323736.60011458 7388889.59993912))");
+
+			Geometry geom3 = new WKTReader().read("POLYGON ((323739.60011468 7388881.799938859, 323739.60011468 7388882.39993888, 323739.60011468 7388882.9999389, 323739.60011468 7388883.59993892, 323740.2001147 7388883.59993892, 323740.2001147 7388884.19993894, 323740.80011472 7388884.19993894, 323741.40011474 7388884.19993894, 323742.00011476 7388884.19993894, 323742.60011478 7388884.19993894, 323743.2001148 7388884.19993894, 323743.2001148 7388883.59993892, 323743.80011482 7388883.59993892, 323743.80011482 7388884.19993894, 323744.40011484 7388884.19993894, 323744.40011484 7388883.59993892, 323744.40011484 7388882.9999389, 323745.00011486 7388882.9999389, 323745.60011488 7388882.9999389, 323745.60011488 7388883.59993892, 323745.60011488 7388884.19993894, 323745.60011488 7388884.79993896, 323745.60011488 7388885.39993898, 323745.60011488 7388885.999938999, 323746.2001149 7388885.999938999, 323746.2001149 7388886.599939019, 323746.2001149 7388887.19993904, 323746.2001149 7388887.79993906, 323746.2001149 7388888.39993908, 323746.2001149 7388888.9999391, 323746.2001149 7388889.59993912, 323746.80011492 7388889.59993912, 323746.80011492 7388890.199939139, 323747.40011494 7388890.199939139, 323747.40011494 7388890.799939159, 323746.80011492 7388890.799939159, 323746.80011492 7388891.399939179, 323746.80011492 7388891.9999392, 323746.80011492 7388892.59993922, 323746.80011492 7388893.19993924, 323747.40011494 7388893.19993924, 323747.40011494 7388893.79993926, 323747.40011494 7388894.39993928, 323748.00011496 7388894.39993928, 323748.60011498 7388894.39993928, 323749.200115 7388894.39993928, 323749.80011502 7388894.39993928, 323749.80011502 7388893.79993926, 323749.80011502 7388893.19993924, 323750.40011504 7388893.19993924, 323751.00011506 7388893.19993924, 323751.00011506 7388892.59993922, 323750.40011504 7388892.59993922, 323750.40011504 7388891.9999392, 323749.80011502 7388891.9999392, 323749.80011502 7388891.399939179, 323749.80011502 7388890.799939159, 323749.80011502 7388890.199939139, 323749.200115 7388890.199939139, 323749.200115 7388889.59993912, 323749.200115 7388888.9999391, 323749.200115 7388888.39993908, 323749.200115 7388887.79993906, 323748.60011498 7388887.79993906, 323748.60011498 7388887.19993904, 323748.60011498 7388886.599939019, 323748.00011496 7388886.599939019, 323748.00011496 7388885.999938999, 323748.00011496 7388885.39993898, 323748.00011496 7388884.79993896, 323748.00011496 7388884.19993894, 323748.00011496 7388883.59993892, 323747.40011494 7388883.59993892, 323747.40011494 7388882.9999389, 323747.40011494 7388882.39993888, 323747.40011494 7388881.799938859, 323747.40011494 7388881.199938839, 323746.80011492 7388881.199938839, 323746.80011492 7388880.599938819, 323746.2001149 7388880.599938819, 323746.2001149 7388879.9999388, 323745.60011488 7388879.9999388, 323745.00011486 7388879.9999388, 323744.40011484 7388879.9999388, 323743.80011482 7388879.9999388, 323743.2001148 7388879.9999388, 323743.2001148 7388880.599938819, 323742.60011478 7388880.599938819, 323742.00011476 7388880.599938819, 323741.40011474 7388880.599938819, 323740.80011472 7388880.599938819, 323740.2001147 7388880.599938819, 323740.2001147 7388881.199938839, 323739.60011468 7388881.199938839, 323739.60011468 7388881.799938859))");
+			
+			Geometry geom4 = new WKTReader().read("POLYGON ((323735.40011454 7388894.9999393, 323735.40011454 7388895.599939319, 323735.40011454 7388896.199939339, 323735.40011454 7388896.79993936, 323735.40011454 7388897.39993938, 323735.40011454 7388897.9999394, 323736.00011456 7388897.9999394, 323736.60011458 7388897.9999394, 323736.60011458 7388898.59993942, 323737.2001146 7388898.59993942, 323737.80011462 7388898.59993942, 323737.80011462 7388899.19993944, 323738.40011464 7388899.19993944, 323739.00011466 7388899.19993944, 323739.60011468 7388899.19993944, 323740.2001147 7388899.19993944, 323740.80011472 7388899.19993944, 323740.80011472 7388898.59993942, 323740.80011472 7388897.9999394, 323741.40011474 7388897.9999394, 323742.00011476 7388897.9999394, 323742.60011478 7388897.9999394, 323742.60011478 7388898.59993942, 323743.2001148 7388898.59993942, 323743.80011482 7388898.59993942, 323744.40011484 7388898.59993942, 323744.40011484 7388897.9999394, 323744.40011484 7388897.39993938, 323744.40011484 7388896.79993936, 323743.80011482 7388896.79993936, 323743.80011482 7388896.199939339, 323743.80011482 7388895.599939319, 323744.40011484 7388895.599939319, 323745.00011486 7388895.599939319, 323745.60011488 7388895.599939319, 323746.2001149 7388895.599939319, 323746.80011492 7388895.599939319, 323746.80011492 7388894.9999393, 323747.40011494 7388894.9999393, 323748.00011496 7388894.9999393, 323748.60011498 7388894.9999393, 323749.200115 7388894.9999393, 323749.200115 7388895.599939319, 323749.200115 7388896.199939339, 323749.200115 7388896.79993936, 323749.200115 7388897.39993938, 323749.200115 7388897.9999394, 323749.200115 7388898.59993942, 323748.60011498 7388898.59993942, 323748.00011496 7388898.59993942, 323748.00011496 7388897.9999394, 323747.40011494 7388897.9999394, 323746.80011492 7388897.9999394, 323746.80011492 7388898.59993942, 323746.2001149 7388898.59993942, 323745.60011488 7388898.59993942, 323745.00011486 7388898.59993942, 323745.00011486 7388899.19993944, 323745.60011488 7388899.19993944, 323746.2001149 7388899.19993944, 323746.2001149 7388899.799939459, 323746.2001149 7388900.399939479, 323746.2001149 7388900.999939499, 323746.2001149 7388901.59993952, 323746.2001149 7388902.19993954, 323746.80011492 7388902.19993954, 323747.40011494 7388902.19993954, 323747.40011494 7388901.59993952, 323747.40011494 7388900.999939499, 323748.00011496 7388900.999939499, 323748.00011496 7388900.399939479, 323748.60011498 7388900.399939479, 323748.60011498 7388899.799939459, 323749.200115 7388899.799939459, 323749.200115 7388899.19993944, 323749.80011502 7388899.19993944, 323750.40011504 7388899.19993944, 323750.40011504 7388899.799939459, 323751.00011506 7388899.799939459, 323751.60011508 7388899.799939459, 323751.60011508 7388899.19993944, 323751.60011508 7388898.59993942, 323751.00011506 7388898.59993942, 323751.00011506 7388897.9999394, 323751.00011506 7388897.39993938, 323750.40011504 7388897.39993938, 323750.40011504 7388896.79993936, 323750.40011504 7388896.199939339, 323750.40011504 7388895.599939319, 323749.80011502 7388895.599939319, 323749.80011502 7388894.9999393, 323749.80011502 7388894.39993928, 323749.200115 7388894.39993928, 323748.60011498 7388894.39993928, 323748.00011496 7388894.39993928, 323747.40011494 7388894.39993928, 323747.40011494 7388893.79993926, 323747.40011494 7388893.19993924, 323746.80011492 7388893.19993924, 323746.80011492 7388893.79993926, 323746.2001149 7388893.79993926, 323745.60011488 7388893.79993926, 323745.00011486 7388893.79993926, 323744.40011484 7388893.79993926, 323744.40011484 7388894.39993928, 323743.80011482 7388894.39993928, 323743.80011482 7388894.9999393, 323743.2001148 7388894.9999393, 323742.60011478 7388894.9999393, 323742.60011478 7388895.599939319, 323742.60011478 7388896.199939339, 323742.60011478 7388896.79993936, 323742.60011478 7388897.39993938, 323742.00011476 7388897.39993938, 323741.40011474 7388897.39993938, 323740.80011472 7388897.39993938, 323740.2001147 7388897.39993938, 323739.60011468 7388897.39993938, 323739.60011468 7388896.79993936, 323739.60011468 7388896.199939339, 323739.00011466 7388896.199939339, 323739.00011466 7388895.599939319, 323739.00011466 7388894.9999393, 323738.40011464 7388894.9999393, 323737.80011462 7388894.9999393, 323737.2001146 7388894.9999393, 323737.2001146 7388894.39993928, 323737.2001146 7388893.79993926, 323737.2001146 7388893.19993924, 323737.2001146 7388892.59993922, 323736.60011458 7388892.59993922, 323736.60011458 7388893.19993924, 323736.60011458 7388893.79993926, 323736.60011458 7388894.39993928, 323736.00011456 7388894.39993928, 323735.40011454 7388894.39993928, 323735.40011454 7388894.9999393))");
+			
+			SpatialIndex index = new SpatialIndex();
+			
+			index.insert(geom2.getEnvelopeInternal(),geom2);
+			index.insert(geom3.getEnvelopeInternal(),geom3);
+			index.insert(geom4.getEnvelopeInternal(),geom4);
+			
+			System.out.println("intersects: " + geom1.intersects(geom2));
+			
+			System.out.println("intersects: " + geom1.intersects(geom3));			
+			
+			System.out.println("intersects: " + geom1.intersects(geom4));
+						
+			System.out.println("query: " + index.query(geom1.getEnvelopeInternal()).size());
+			
+			//System.out.println("covers: " + geom1.covers(geom1));
+			
+		} catch (Exception e) {
+			
+		}
 		
 	}
 	
 	public static void main(String[] args) {
 
-		//JSONToShapefile();
+		//test();
 		
-		runTessio();		
+		JSONToShapefile();
+		
+		//runTessio();		
 		
 		//runCluster();
 		

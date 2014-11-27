@@ -14,35 +14,30 @@ limitations under the License.*/
 
 package br.puc_rio.ele.lvc.interimage.common;
 
-import java.util.List;
+import java.io.Serializable;
 
 /**
- * A class that manages the tiles.
+ * A class that holds the information about a shape.
  * @author Rodrigo Ferreira
  *
  */
-public interface TileManager {
-	
-	public String encode(long id);
-	
-	public int getNumTilesX();
-	
-	public int getNumTilesY();
-	
-	public double getTileSize();
-	
-	public String getCRS();
-	
-	public int[] getTileCoordinates(double[] bbox);
-	
-	public void setTiles(double[] geobbox);
-	
-	public List<String> getTiles(double[] geobbox);
-	
-	public List<Tile> getTiles();
-	
-	public double[] getWorldBBox();
+@SuppressWarnings("serial")
+public class Shape implements Serializable {
+
+	private long _id;
+	private String _code;
+	private String _geometry;
 		
-	public List<String> getNeighourTiles(String code, List<String> directions);
+	public void setId(long id) { _id = id; }
+	
+	public String getCode() { return _code; }
+	
+	public void setCode(String code) { _code = code; }
+	
+	public long getId() { return _id; }
+	
+	public void setGeometry(String geometry) { _geometry = geometry; }
+	
+	public String getGeometry() { return _geometry; }
 	
 }

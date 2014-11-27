@@ -16,7 +16,6 @@ package br.puc_rio.ele.lvc.interimage.data;
 
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -30,10 +29,6 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
-
-import org.iq80.snappy.SnappyOutputStream;
-
-import com.google.common.io.ByteStreams;
 
 import br.puc_rio.ele.lvc.interimage.common.TileManager;
 
@@ -238,7 +233,7 @@ public class ImageConverter {
 	                img = reader.read(0, param);
 	             	                
 	                /*Write tiff file*/
-	                File outputfile = new File(imagePath + "T" + id + extension);
+	                File outputfile = new File(imagePath + tileManager.encode(id) + extension);
 	                
 	                ImageIO.write(img, formatName, outputfile);
 	                	                
@@ -268,7 +263,7 @@ public class ImageConverter {
 	                
 	                out.close();*/
 	                
-	                OutputStream out3 = new FileOutputStream(imagePath + "T" + id + ".meta");
+	                OutputStream out3 = new FileOutputStream(imagePath + tileManager.encode(id) + ".meta");
 	                
 	                String str = imageObj.getBands() + "\n";
 	                str = str + (imgBBox[2]-imgBBox[0]+1) + "\n";

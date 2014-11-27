@@ -23,6 +23,7 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -42,6 +43,7 @@ import org.apache.pig.impl.logicalLayer.schema.Schema;
 import com.vividsolutions.jts.geom.Geometry;
 
 import br.puc_rio.ele.lvc.interimage.common.Common;
+import br.puc_rio.ele.lvc.interimage.common.FixedGridTileManager;
 import br.puc_rio.ele.lvc.interimage.common.TileManager;
 import br.puc_rio.ele.lvc.interimage.data.imageioimpl.plugins.tiff.TIFFImageReader;
 import br.puc_rio.ele.lvc.interimage.common.GeometryParser;
@@ -176,7 +178,7 @@ public class SpectralFeatures extends EvalFunc<DataBag> {
 				if (_featureMap == null) {
 					String crs = DataType.toString(properties.get("crs"));
 					parseFeatures();
-					_tileManager = new TileManager(_tileSize, crs);
+					_tileManager = new FixedGridTileManager(_tileSize, crs);
 				}
 				
 				if (_newBag) {
@@ -185,15 +187,18 @@ public class SpectralFeatures extends EvalFunc<DataBag> {
 					
 					String tileStr = DataType.toString(properties.get("tile"));
 					
-					long tileId = Long.parseLong(tileStr.substring(1));
+					/*long tileId = Long.parseLong(tileStr.substring(1));
 					
 					List<String> tiles = new ArrayList<String>();
 					//TODO: Some intelligence here can help to define the tiles to be considered
 					tiles.add("T" + tileId);
 					tiles.add("T" + (tileId+1));
 					tiles.add("T" + (tileId+_tileManager.getNumTilesX()));
-					tiles.add("T" + (tileId+_tileManager.getNumTilesX()+1));
+					tiles.add("T" + (tileId+_tileManager.getNumTilesX()+1));*/
 				
+					List<String> tiles = _tileManager.getNeighourTiles(tileStr, Arrays.asList("N","NE","E"));
+					tiles.add(tileStr);
+					
 				//TODO: Think about multiple assignment, works for single 
 								
 				//Map<String,Image> imageObjects = new HashMap<String,Image>();
@@ -433,7 +438,7 @@ public class SpectralFeatures extends EvalFunc<DataBag> {
 		try {
 
 			List<Schema.FieldSchema> list = new ArrayList<Schema.FieldSchema>();
-			list.add(new Schema.FieldSchema(null, DataType.BYTEARRAY));
+			list.add(new Schema.FieldSchema(null, DataType.CHARARRAY));
 			list.add(new Schema.FieldSchema(null, DataType.MAP));
 			list.add(new Schema.FieldSchema(null, DataType.MAP));
 					

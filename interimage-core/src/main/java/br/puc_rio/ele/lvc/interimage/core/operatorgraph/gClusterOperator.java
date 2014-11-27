@@ -39,6 +39,7 @@ public class gClusterOperator extends gOperator {
 	
 	public gClusterOperator() {
 		parameters_ = new HashMap<String, String>();
+		parser_ = new PigParser();
 	}
 	
 	public void setParser(PigParser parser) {
@@ -55,6 +56,7 @@ public class gClusterOperator extends gOperator {
 	
 	public void setProperties(Properties properties) {
 		properties_ = properties;
+		parser_.setup(properties);
 	}
 	
 	/*public void setParameters(Map<String,String> parameters) {

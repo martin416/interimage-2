@@ -75,6 +75,7 @@ public class PigParser {
 		//_params.put("$SHAPES_KEY", "interimage/" + projectName + "/resources/shapes/");
 		_params.put("$TILES_FILE", _sourceURL + "interimage/" + _projectName + "/resources/tiles.ser");
 		_params.put("$FUZZYSETS_FILE", _sourceURL + "interimage/" + _projectName + "/resources/fuzzysets.ser");
+		_params.put("$SEMANTICNET_FILE", _sourceURL + "interimage/" + _projectName + "/resources/semanticnetwork.ser");
 		_params.put("$TILES_PATH", _sourceSpecificURL + "interimage/" + _projectName + "/tiles/");
 		//_params.put("$DUMP_PATH", _sourceSpecificURL + "interimage/" + _projectName + "/dump/" + randomGenerator.nextInt(100000));
 		//_params.put("$RESULTS_PATH", sourceSpecificURL + "interimage/" + projectName + "/results/" + randomGenerator.nextInt(100000));
@@ -242,7 +243,7 @@ public class PigParser {
 	    			    		
 	    		int totalSize = folder.list().length;
 	    		
-	    		int blockSize = (int)Math.ceil(totalSize / (float)(_parallel*8));
+	    		int blockSize = (int)Math.ceil(totalSize / (float)(_parallel));
 	    			    		
 	    		int count1 = 1;
 	    		int count2 = 1;	        		

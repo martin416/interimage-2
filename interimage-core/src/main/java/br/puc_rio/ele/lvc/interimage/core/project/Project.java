@@ -14,12 +14,13 @@ limitations under the License.*/
 
 package br.puc_rio.ele.lvc.interimage.core.project;
 
+import br.puc_rio.ele.lvc.interimage.common.FixedGridTileManager;
+import br.puc_rio.ele.lvc.interimage.common.SemanticNetwork;
 import br.puc_rio.ele.lvc.interimage.common.TileManager;
 import br.puc_rio.ele.lvc.interimage.common.URL;
 import br.puc_rio.ele.lvc.interimage.core.datamanager.DataManager;
 import br.puc_rio.ele.lvc.interimage.core.datamanager.DefaultResource;
 import br.puc_rio.ele.lvc.interimage.core.datamanager.SplittableResource;
-import br.puc_rio.ele.lvc.interimage.core.semanticnetwork.SemanticNetwork;
 import br.puc_rio.ele.lvc.interimage.data.Image;
 import br.puc_rio.ele.lvc.interimage.data.ImageList;
 import br.puc_rio.ele.lvc.interimage.datamining.FuzzySet;
@@ -134,7 +135,7 @@ public class Project {
 			/*Setting reduce parallelism*/
 			int clusterSize = Integer.parseInt(_properties.getProperty("interimage.clusterSize"));
 			//int parallel = (int)Math.round(clusterSize * 0.8);
-			int parallel = clusterSize-1;
+			int parallel = (int)Math.round((clusterSize-1)*8*0.95);
 			
 			_properties.setProperty("interimage.parallel", String.valueOf(parallel));
 			
@@ -159,7 +160,10 @@ public class Project {
 			    NodeList images = rootElement.getElementsByTagName("image");
 			    NodeList shapes = rootElement.getElementsByTagName("shape");
 			    NodeList fuzzySets = rootElement.getElementsByTagName("fuzzysets");			    
-		    				    
+		    				   
+			    @SuppressWarnings("unused")
+				String semNetUrl = "";
+			    
 			    /*Reading Semantic Network*/
 			    if (semNets.getLength() > 0) {
 			    	
@@ -167,7 +171,16 @@ public class Project {
 			    	
 			    	_semanticNet.readOldFile(semNet.getAttribute("dir") + File.separatorChar + semNet.getAttribute("file"));
 			    	
-			    	//TODO: send semantic network to AWS
+			    	/*for (br.puc_rio.ele.lvc.interimage.common.Node node : _semanticNet.getNodeList()) {
+		    			System.out.println(node.getClassName());
+		    		}*/
+			    	
+			    	if (_upload) {
+				    				    		
+			    		if (_semanticNet.size()>0)
+			    			semNetUrl = _dataManager.setupResource(new DefaultResource(_semanticNet.getNodeList(), DefaultResource.SEMANTIC_NETWORK), null, _projectName, URL.getPath(_projectPath));			    	
+			    	
+			    	}
 			    	
 			    } else {
 			    	throw new Exception("No geosemnet tag defined");
@@ -244,14 +257,16 @@ public class Project {
 			    		}
 			    	
 			    	}
-			    			
+			    	
+			    	_properties.setProperty("interimage.minResolution", String.valueOf(_minResolution));
+			    	
 			    	_properties.setProperty("interimage.crs", crs);
 			    	
 			    	_properties.setProperty("interimage.tileSizeMeters", String.valueOf(_tilePixelSize * _minResolution));
 			    				    	
 			    	//System.out.println(_properties.getProperty("interimage.tileSize"));
 			    	
-			    	_tileManager = new TileManager(_tilePixelSize * _minResolution, crs);
+			    	_tileManager = new FixedGridTileManager(_tilePixelSize * _minResolution, crs);
 			    	
 			    	_dataManager.updateGeoBBox(new double[] {_imageList.getGeoWest(), _imageList.getGeoSouth(), _imageList.getGeoEast(), _imageList.getGeoNorth()}); 
 			    				    	
@@ -283,12 +298,12 @@ public class Project {
 				    	
 				    	_shapeList.add(key, shp);
 				    	
-				    	if (_upload) {
+				    	if (true) {
 				    	
 					    	if (splittable) {
-					    		_dataManager.setupResource(new SplittableResource(shp,SplittableResource.SHAPE), _tileManager, _projectName, null);
+					    		_dataManager.setupResource(new SplittableResource(shp,SplittableResource.SHAPE), _tileManager, _projectName, URL.getPath(_projectPath));
 					    	} else {
-					    		_dataManager.setupResource(new DefaultResource(shp,DefaultResource.SHAPE), null, _projectName, null);
+					    		_dataManager.setupResource(new DefaultResource(shp,DefaultResource.SHAPE), _tileManager, _projectName, URL.getPath(_projectPath));
 					    	}
 					    	
 				    	}

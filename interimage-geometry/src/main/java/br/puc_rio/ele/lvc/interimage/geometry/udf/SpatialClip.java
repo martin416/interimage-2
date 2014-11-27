@@ -15,11 +15,8 @@ limitations under the License.*/
 package br.puc_rio.ele.lvc.interimage.geometry.udf;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.net.URL;
 import java.net.URLConnection;
@@ -31,24 +28,21 @@ import java.util.Map;
 import org.apache.pig.EvalFunc;
 import org.apache.pig.data.BagFactory;
 import org.apache.pig.data.DataBag;
-import org.apache.pig.data.DataByteArray;
 import org.apache.pig.data.DataType;
 import org.apache.pig.data.Tuple;
 import org.apache.pig.data.TupleFactory;
 import org.apache.pig.impl.logicalLayer.schema.Schema;
-import org.iq80.snappy.SnappyInputStream;
 
 import br.puc_rio.ele.lvc.interimage.common.GeometryParser;
 import br.puc_rio.ele.lvc.interimage.common.Tile;
 import br.puc_rio.ele.lvc.interimage.common.UUID;
 import br.puc_rio.ele.lvc.interimage.geometry.FilterGeometryCollection;
 
-import com.google.common.io.ByteStreams;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.Polygon;
 import com.vividsolutions.jts.index.strtree.STRtree;
-import com.vividsolutions.jts.io.WKBWriter;
 import com.vividsolutions.jts.io.WKTReader;
+import com.vividsolutions.jts.io.WKTWriter;
 
 /**
  * A UDF that clips geometries in relation to a list of ROIs.<br>
@@ -137,7 +131,23 @@ public class SpatialClip extends EvalFunc<DataBag> {
 	        	
 	        	if (!_roiUrl.isEmpty()) {
 	        			      
-	        		if (_roiUrl.endsWith(".wkts")) {
+	        		URL url  = new URL(_roiUrl);	        		
+	                URLConnection urlConn = url.openConnection();
+	                urlConn.connect();
+			        InputStream buff = new BufferedInputStream(urlConn.getInputStream());				    	    	        
+			        ObjectInputStream in = new ObjectInputStream(buff);
+	    			
+	    		    List<br.puc_rio.ele.lvc.interimage.common.Shape> shapes = (List<br.puc_rio.ele.lvc.interimage.common.Shape>)in.readObject();
+	    		    
+	    		    in.close();
+				    
+				    for (br.puc_rio.ele.lvc.interimage.common.Shape t : shapes) {				    	
+				    	Geometry geometry = new WKTReader().read(t.getGeometry());
+				    	_roiIndex.insert(geometry.getEnvelopeInternal(),t);
+			        	_gridIds.addAll(_gridIndex.query(geometry.getEnvelopeInternal()));
+				    }
+	        		
+	        		/*if (_roiUrl.endsWith(".wkts")) {
 	        			
 	        			URL url  = new URL(_roiUrl);	        		
 		                URLConnection urlConn = url.openConnection();
@@ -172,7 +182,7 @@ public class SpatialClip extends EvalFunc<DataBag> {
 				        	_gridIds.addAll(_gridIndex.query(geometry.getEnvelopeInternal()));
 				        }
 				        
-	        		}
+	        		}*/
 
 	        	}
 	        } catch (Exception e) {
@@ -199,9 +209,11 @@ public class SpatialClip extends EvalFunc<DataBag> {
 		        if (_gridIds.contains(tileStr)) {
 		        	Geometry geometry = _geometryParser.parseGeometry(objGeometry);
 	
-	        		List<Geometry> list = _roiIndex.query(geometry.getEnvelopeInternal());
+	        		List<br.puc_rio.ele.lvc.interimage.common.Shape> list = _roiIndex.query(geometry.getEnvelopeInternal());
 	  	        		
-		        	for (Geometry geom : list) {
+		        	for (br.puc_rio.ele.lvc.interimage.common.Shape shape : list) {
+		        		
+		        		Geometry geom = new WKTReader().read(shape.getGeometry());
 		        		
 		        		if (geom.intersects(geometry)) {
 		        			
@@ -222,14 +234,15 @@ public class SpatialClip extends EvalFunc<DataBag> {
 		        			
 		        			for (int k=0; k<g.getNumGeometries(); k++) {//separating polygons in different records
 		        			
-			        			byte[] bytes = new WKBWriter().write(g.getGeometryN(k));
+			        			//byte[] bytes = new WKBWriter().write(g.getGeometryN(k));
 			        			
 			        			Tuple t = TupleFactory.getInstance().newTuple(3);
-			        			t.set(0,new DataByteArray(bytes));
+			        			t.set(0,new WKTWriter().write(g.getGeometryN(k)));
 			        			t.set(1,new HashMap<String,String>(data));
 			        			
 			        			HashMap<String,Object> props = new HashMap<String,Object>(properties);
-			        			props.put("iiuuid",new UUID(null).random());		        			
+			        			props.put("iiuuid",new UUID(null).random());
+			        			props.put("parent", shape.getCode());
 			        			t.set(2,props);
 			        			
 			        			bag.add(t);
@@ -260,7 +273,7 @@ public class SpatialClip extends EvalFunc<DataBag> {
 		try {
 
 			List<Schema.FieldSchema> list = new ArrayList<Schema.FieldSchema>();
-			list.add(new Schema.FieldSchema(null, DataType.BYTEARRAY));
+			list.add(new Schema.FieldSchema(null, DataType.CHARARRAY));
 			list.add(new Schema.FieldSchema(null, DataType.MAP));
 			list.add(new Schema.FieldSchema(null, DataType.MAP));
 			

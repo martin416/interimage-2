@@ -12,8 +12,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.*/
 
-package br.puc_rio.ele.lvc.interimage.core.semanticnetwork;
+package br.puc_rio.ele.lvc.interimage.common;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,7 +22,9 @@ import java.util.List;
  * A class that holds the information about a semantic network node. 
  * @author Rodrigo Ferreira
  */
-public class Node {
+
+@SuppressWarnings("serial")
+public class Node implements Serializable {
 
 	private String _className;
 	private Node _parent;

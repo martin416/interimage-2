@@ -51,7 +51,7 @@ public class Classify extends EvalFunc<Map<String,Object>> {
 				
 				Map<String,Double> classification = (Map<String,Double>)objProperties.get("classification");
 					
-				Double membership = 0.0;
+				Double membership = -1.0;
 				String className = null;
 				
 				for (Map.Entry<String, Double> entry : classification.entrySet()) {

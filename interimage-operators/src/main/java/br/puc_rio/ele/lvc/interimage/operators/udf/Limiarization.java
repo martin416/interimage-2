@@ -35,7 +35,6 @@ import javax.imageio.stream.ImageInputStream;
 import org.apache.pig.EvalFunc;
 import org.apache.pig.data.BagFactory;
 import org.apache.pig.data.DataBag;
-import org.apache.pig.data.DataByteArray;
 import org.apache.pig.data.DataType;
 import org.apache.pig.data.Tuple;
 import org.apache.pig.data.TupleFactory;
@@ -49,7 +48,7 @@ import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.LinearRing;
-import com.vividsolutions.jts.io.WKBWriter;
+import com.vividsolutions.jts.io.WKTWriter;
 
 //TODO: This could be a generic UDF that receives the parameters and compute a particular segmentation process.
 //TODO: Create an interface for segmentation and then each implementation
@@ -78,17 +77,19 @@ public class Limiarization extends EvalFunc<DataBag> {
 	private String[] _class; 
 	private Operation _operation;
 	private int[] _bandsOperation;
+	private double _minArea;
 
 	private Map<String,List<Geometry>> _segmentList;
 	public enum Operation {EXPRESSION, BRIGHTNESS, INDEX, BAND}
 	
 	private double [] _imageTileGeoBox;
 	
-	public Limiarization (String imageUrl, String image, String thresholds, String classes, String operation) throws Exception {
+	public Limiarization (String imageUrl, String image, String thresholds, String classes, String operation, String minArea) throws Exception {
 		//_segmentSize = Double.parseDouble(segmentSize);
 		_imageUrl = imageUrl;
 		_image = image;
 		//_roiUrl = roiUrl;
+		_minArea = Double.parseDouble(minArea);		
 		
 		//thresholds
 		String[] tr = thresholds.split(",");
@@ -270,12 +271,12 @@ public class Limiarization extends EvalFunc<DataBag> {
 		        		
 		        		//TODO: Should be a parameter
 		        		
-		        		if (aux.getArea() < 31.25)
+		        		if (aux.getArea() < _minArea)
 		        			continue;
 		        		
 			        	Tuple t = TupleFactory.getInstance().newTuple(3);
 							
-		        		byte[] bytes = new WKBWriter().write(aux);
+		        		//byte[] bytes = new WKBWriter().write(aux);
 		        		
 		        		Map<String,Object> props = new HashMap<String,Object>(properties);
 		        		
@@ -284,7 +285,7 @@ public class Limiarization extends EvalFunc<DataBag> {
 		        		props.put("iiuuid", id);
 		        		props.put("class", entry.getKey());
 		        		
-		        		t.set(0,new DataByteArray(bytes));
+		        		t.set(0,new WKTWriter().write(aux));
 		        		t.set(1,new HashMap<String,String>(data));
 		        		t.set(2,props);
 		        		bag.add(t);
@@ -311,7 +312,7 @@ public class Limiarization extends EvalFunc<DataBag> {
 		try {
 
 			List<Schema.FieldSchema> list = new ArrayList<Schema.FieldSchema>();
-			list.add(new Schema.FieldSchema(null, DataType.BYTEARRAY));
+			list.add(new Schema.FieldSchema(null, DataType.CHARARRAY));
 			list.add(new Schema.FieldSchema(null, DataType.MAP));
 			list.add(new Schema.FieldSchema(null, DataType.MAP));
 			

@@ -14,16 +14,20 @@ limitations under the License.*/
 
 package br.puc_rio.ele.lvc.interimage.core.datamanager;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
+import java.io.InputStreamReader;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
+import br.puc_rio.ele.lvc.interimage.common.Node;
 import br.puc_rio.ele.lvc.interimage.common.Tile;
 import br.puc_rio.ele.lvc.interimage.common.TileManager;
 import br.puc_rio.ele.lvc.interimage.common.URL;
@@ -206,42 +210,169 @@ public class DataManager {
 				
 			} else if (rsrc.getType() == DefaultResource.SHAPE) {
 				
-				Shape shp = (Shape)rsrc.getObject();
+				try {
 				
-				String url = shp.getURL();
+					Shape shp = (Shape)rsrc.getObject();
+					
+					String url = shp.getURL();
+					
+					if (url.contains(".csv")) {
+					
+						//TODO: This shouldn't be here
+						
+						String to = "interimage/" + projectName + "/resources/" + shp.getKey() + ".csv";
+						
+						_source.put(url, to, rsrc);
+						
+						returnUrl = _source.getURL() + to;
+						
+					} else if (url.contains(".wkt")) {
+						
+						String to = "interimage/" + projectName + "/resources/shapes/" + shp.getKey() + ".wkt";
+						
+						_source.put(url, to, rsrc);
+						
+						returnUrl = _source.getURL() + to;
+						
+					} else if (url.contains(".shp")) {
+								
+						File path1 = new File(projectPath + "/shapes/");
+						
+						if (!path1.exists())
+							path1.mkdirs();
+						
+						String wkt = projectPath + "/shapes/" + shp.getKey() + ".wkt";
+						ShapefileConverter.shapefileToWKT(url, wkt, shp.getCRS(), shp.getCRS());
+						
+						File path = new File(projectPath + "/shapes/" + shp.getKey());
+						
+						if (!path.exists()) {
+							
+							List<br.puc_rio.ele.lvc.interimage.common.Shape> shapes = new ArrayList<br.puc_rio.ele.lvc.interimage.common.Shape>();
+							
+							FileInputStream stream = new FileInputStream(wkt);
+							InputStreamReader inStream = new InputStreamReader(stream);							
+							BufferedReader buff = new BufferedReader(inStream);
+							
+					        String line;
+					        while ((line = buff.readLine()) != null) {					        	
+					        	br.puc_rio.ele.lvc.interimage.common.Shape shape = new br.puc_rio.ele.lvc.interimage.common.Shape();
+					        	
+					        	String id = new UUID(null).random();
+					        	
+					        	shape.setCode(String.valueOf(id));
+					        	shape.setGeometry(line);
+					        	shapes.add(shape);
+					        }
+					        
+					        buff.close();
+							
+							OutputStream stream2 = new FileOutputStream(projectPath + "/shapes/" + shp.getKey() + ".ser");
+						    ObjectOutputStream out = new ObjectOutputStream(stream2);
+							
+						    out.writeObject(shapes);
+						    
+						    out.close();
+							
+							//TODO: Just for test purposes
+						    //FileWriter fw = new FileWriter(projectPath + "/shapes/" + shp.getKey() + ".wkt");
+							//BufferedWriter bw = new BufferedWriter(fw);
+						    	
+							//Test: single file for tiles
+							//FileWriter ftw = new FileWriter(projectPath + "tiles.json");
+							//BufferedWriter btw = new BufferedWriter(ftw);
+							
+							path.mkdirs();
+							
+							/*for (final File fileEntry : path.listFiles()) {
+						        if (fileEntry.isDirectory()) {
+						        	//ignore
+						        } else {
+						        	fileEntry.delete();
+						        }
+						    }*/
+							
+						    for (br.puc_rio.ele.lvc.interimage.common.Shape shape : shapes) {
+						    	//bw.write(tile.getGeometry() + "\n");
+						    	
+						    	/*for segmentation purposes*/
+							    OutputStream out2 = new FileOutputStream(projectPath + "shapes/" + shp.getKey() + "/" + shape.getCode() + ".json");
+						    							    	
+						    	String str = "{\"geometry\":";	                
+				                str += "\"" + shape.getGeometry() + "\"";
+				                //str += "\"" + WKBWriter.toHex(new WKBWriter().write(geom)) + "\"";	                	                
+				                str += ",\"data\":{\"0\":\"\"}";
+				                str += ",\"properties\":{\"tile\":\"" + "" + "\",\"crs\":\"" + tileManager.getCRS() + "\",\"class\":\"None\",\"iiuuid\":\"" + shape.getCode() + "\"}}\n";
+						    	out2.write(str.getBytes());
+						    	
+						    	//btw.write(str);
+						    	
+						    	out2.close();
+						    }
+						    
+						    //btw.close();
+						    //bw.close();
+						    
+						    //ShapefileConverter.WKTToShapefile(projectPath + "tiles.wkt", projectPath + "tiles.shp", null, null);
+						    
+						}
+						
+						if (_upload) {
+						    
+						    File folder = new File(projectPath + "/shapes/" + shp.getKey());
+							
+							for (final File fileEntry : folder.listFiles()) {
+						        if (fileEntry.isDirectory()) {
+						        	//ignore
+						        } else {
+						        	_source.put(projectPath + "/shapes/" + shp.getKey() + "/" + fileEntry.getName(), "interimage/" + projectName + "/resources/shapes/" + shp.getKey() + "/" + fileEntry.getName(), rsrc);
+						        }
+						    }
+					    
+					    }
+							
+					    String to = "interimage/" + projectName + "/resources/shapes/" + shp.getKey() + ".ser";
+					    
+					    if (_upload)
+					    	_source.put(projectPath + "shapes/" + shp.getKey() + ".ser", to, rsrc);
+					    			
+					    returnUrl = _source.getURL() + to;
+						
+						/*String to = "interimage/" + projectName + "/resources/shapes/" + shp.getKey() + ".wkt";
+						
+						_source.put(wkt, to, rsrc);
+						
+						returnUrl = _source.getURL() + to;*/
+						
+					}
 				
-				if (url.contains(".csv")) {
-				
-					//TODO: This shouldn't be here
-					
-					String to = "interimage/" + projectName + "/resources/" + shp.getKey() + ".csv";
-					
-					_source.put(url, to, rsrc);
-					
-					returnUrl = _source.getURL() + to;
-					
-				} else if (url.contains(".wkt")) {
-					
-					String to = "interimage/" + projectName + "/resources/shapes/" + shp.getKey() + ".wkt";
-					
-					_source.put(url, to, rsrc);
-					
-					returnUrl = _source.getURL() + to;
-					
-				} else if (url.contains(".shp")) {
-										
-					String wkt = URL.getPath(url) + URL.getFileNameWithoutExtension(url) + ".wkt";
-					ShapefileConverter.shapefileToWKT(url, wkt, shp.getCRS(), shp.getCRS());
-					
-					String to = "interimage/" + projectName + "/resources/shapes/" + shp.getKey() + ".wkt";
-					
-					_source.put(wkt, to, rsrc);
-					
-					returnUrl = _source.getURL() + to;
-					
+				} catch (Exception e) {
+					System.out.println("Failed to setup DefaultResource of type SHAPE; error - " + e.getMessage());
 				}
 				
 			} else if (rsrc.getType() == DefaultResource.SEMANTIC_NETWORK) {
+				
+				try {
+					
+					@SuppressWarnings("unchecked")
+					List<Node> semanticNodes = (List<Node>)rsrc.getObject();
+					
+					OutputStream stream = new FileOutputStream(projectPath + "semanticnetwork.ser");
+				    ObjectOutputStream out = new ObjectOutputStream(stream);
+					
+				    out.writeObject(semanticNodes);
+				    
+				    out.close();
+				    
+				    String to = "interimage/" + projectName + "/resources/semanticnetwork.ser";
+				    
+				    _source.put(projectPath + "semanticnetwork.ser", to, rsrc);
+				    
+				    returnUrl = _source.getURL() + to;
+				    
+				} catch (Exception e) {
+					System.out.println("Failed to setup DefaultResource of type SEMANTIC_NETWORK; error - " + e.getMessage());
+				}
 				
 			} else if (rsrc.getType() == DefaultResource.PROPERTY) {
 			

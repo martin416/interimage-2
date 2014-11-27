@@ -16,6 +16,7 @@ package br.puc_rio.ele.lvc.interimage.geometry.udf;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -23,7 +24,6 @@ import java.util.Map;
 import org.apache.pig.EvalFunc;
 import org.apache.pig.data.BagFactory;
 import org.apache.pig.data.DataBag;
-import org.apache.pig.data.DataByteArray;
 import org.apache.pig.data.DataType;
 import org.apache.pig.data.Tuple;
 import org.apache.pig.impl.logicalLayer.schema.Schema;
@@ -32,7 +32,7 @@ import br.puc_rio.ele.lvc.interimage.common.GeometryParser;
 import br.puc_rio.ele.lvc.interimage.common.SpatialIndex;
 
 import com.vividsolutions.jts.geom.Geometry;
-import com.vividsolutions.jts.io.WKBWriter;
+import com.vividsolutions.jts.io.WKTWriter;
 
 /**
  * A UDF that combines several bags into one considering spatial overlaps and resolving them.<br><br>
@@ -56,7 +56,7 @@ public class SpatialResolve extends EvalFunc<DataBag> {
 			
 			int size = bagList.size();
 			
-			SpatialIndex[] index = new SpatialIndex[size];
+			SpatialIndex[] index = null;
 			
 			Iterator it = bag1.iterator();
 	        while (it.hasNext()) {
@@ -68,9 +68,21 @@ public class SpatialResolve extends EvalFunc<DataBag> {
 	        	Map<String,Object> props1 = DataType.toMap(t1.get(2));
 				
 				double membership1 = DataType.toDouble(props1.get("membership"));
+				
+				//String iiuuid1 = DataType.toString(props1.get("iiuuid"));
 					
-				for (int k=0; k<size; k++)
-					index[k] = createIndex(bagList.get(k));
+				/*Removes the geometry that was set to be removed by a previous bag.*/
+				if (props1.containsKey("remove"))
+					continue;
+				
+				if (index==null) {
+				
+					index = new SpatialIndex[size];
+					
+					for (int k=0; k<size; k++)
+						index[k] = createIndex(bagList.get(k));
+
+				}
 				
 	        	List<Tuple> list = new ArrayList<Tuple>();
 	        	
@@ -78,6 +90,8 @@ public class SpatialResolve extends EvalFunc<DataBag> {
 	        		List<Tuple> l = index[k].query(geom1.getEnvelopeInternal());
 	        		list.addAll(l);
 	        	}
+	        	
+	        	boolean remove = false; 
 	        	
 	        	for (Tuple t2 : list) {
 	        		
@@ -87,23 +101,82 @@ public class SpatialResolve extends EvalFunc<DataBag> {
 		        	
 		        	double membership2 = DataType.toDouble(props2.get("membership"));
 	        		
+		        	if (props2.containsKey("remove"))
+		        		continue;
+		        	
+		        	//String iiuuid2 = DataType.toString(props2.get("iiuuid"));
+		        			        	
 	        		if (geom1.intersects(geom2)) {
-	        			
+	        				        			
 	        			if (membership1 >= membership2) {
-	        				Geometry g = geom2.difference(geom1);
-	        				byte[] bytes = new WKBWriter().write(g);
-	        				t2.set(0, new DataByteArray(bytes));
+	        				
+	        				if (geom1.covers(geom2)) {
+	        					
+	        					/* first case: geom1 covers geom2
+	        					 * geom2 set to be removed
+	        					 */
+	        					
+	        					props2.put("remove", "true");
+	        					t2.set(2, props2);
+	        					
+	        				} else {
+	        				
+	        					/* second case: geom1 intersects geom2 
+	        					 * geom1 eats (part of) geom2 up	        					  
+	        					 */
+	        				
+		        				Geometry g = geom2.difference(geom1);
+		        				t2.set(0, new WKTWriter().write(g));
+	        				
+	        				}
+	        					        				
 	        			} else {
-	        				Geometry g = geom1.difference(geom2);
-	        				byte[] bytes = new WKBWriter().write(g);
-	        				t1.set(0, new DataByteArray(bytes));
+	        				
+	        				if (geom2.covers(geom1)) {
+	        					
+	        					/* first case: geom2 covers geom1
+	        					 * geom1 set to be removed
+	        					 */
+	        						        					
+	        					remove = true;
+	        					break;
+	        					
+	        				} else {
+	        					
+	        					/* second case: geom1 intersects geom2 
+	        					 * geom2 eats (part of) geom1 up	        					  
+	        					 */
+	        				
+	        					Geometry g = geom1.difference(geom2);		        				
+		        				t1.set(0, new WKTWriter().write(g));
+	        					
+	        				}
+	        				
+	        				
 	        			}
 	        			
 	        		}
 	        		
 	        	}
 	        	
-	        	output.add(t1);
+	        	if (!remove) {
+	        		
+	        		Map<String,Object> newProps = new HashMap<String,Object>();
+	        		
+	        		//TODO: Make it a parameter or wrap in a class
+	        		
+	        		newProps.put("crs", newProps.get("crs"));
+	        		newProps.put("classification", newProps.get("classification"));
+	        		newProps.put("class", newProps.get("class"));
+	        		newProps.put("tile", newProps.get("tile"));
+	        		newProps.put("membership", newProps.get("membership"));
+	        		newProps.put("iiuuid", newProps.get("iiuuid"));
+	        		newProps.put("parent", newProps.get("parent"));
+	        		
+	        		t1.set(2, newProps);
+	        		
+	        		output.add(t1);
+	        	}
 	        	
 	        }
 	        
@@ -154,23 +227,30 @@ public class SpatialResolve extends EvalFunc<DataBag> {
 						
 			DataBag output = BagFactory.getInstance().newDefaultBag();
 						
+			List<DataBag> bagList = new ArrayList<DataBag>();
+			
+			for (int j=0; j<input.size(); j++) {
+				DataBag bag = DataType.toBag(input.get(j));
+				bagList.add(bag);
+			}
+			
+			/* Compares each bag with the other bags and writes that bag down to the output. */
+			
 			for (int i=0; i<input.size(); i++) {
-				DataBag bag1 = DataType.toBag(input.get(i));				
+				
+				DataBag bag1 = bagList.get(i);
+				
+				List<DataBag> list = new ArrayList<DataBag>();
 				
 				if (i<(input.size()-1)) {//not necessary for the last bag
-				
-					List<DataBag> bagList = new ArrayList<DataBag>();
-					
+									
 					for (int j=i+1; j<input.size(); j++) {
-						
-						DataBag bag2 = DataType.toBag(input.get(i));
-						bagList.add(bag2);
-						
+						list.add(bagList.get(j));
 					}
-					
-					computeIndexNestedLoopSpatialResolve(bag1, bagList, output);
-					
+										
 				}
+				
+				computeIndexNestedLoopSpatialResolve(bag1, list, output);
 				
 			}
 			
@@ -187,7 +267,7 @@ public class SpatialResolve extends EvalFunc<DataBag> {
 		try {
 
 			List<Schema.FieldSchema> list = new ArrayList<Schema.FieldSchema>();
-			list.add(new Schema.FieldSchema(null, DataType.BYTEARRAY));
+			list.add(new Schema.FieldSchema(null, DataType.CHARARRAY));
 			list.add(new Schema.FieldSchema(null, DataType.MAP));
 			list.add(new Schema.FieldSchema(null, DataType.MAP));
 			

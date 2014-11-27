@@ -12,10 +12,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.*/
 
-package br.puc_rio.ele.lvc.interimage.core.semanticnetwork;
+package br.puc_rio.ele.lvc.interimage.common;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -119,6 +121,19 @@ public class SemanticNetwork {
 			count = count + countNodes(node.getChildren().get(k));
 		}
 		return count;
+	}
+	
+	private void getNodes(Node node, List<Node> list) {			
+		list.add(node);
+		for (int k=0; k<node.getChildren().size(); k++) {
+			getNodes(node.getChildren().get(k), list);
+		}
+	}
+	
+	public List<Node> getNodeList() {
+		List<Node> list = new ArrayList<Node>(); 
+		getNodes(_root, list);		
+		return list;
 	}
 	
 	public int size() {		

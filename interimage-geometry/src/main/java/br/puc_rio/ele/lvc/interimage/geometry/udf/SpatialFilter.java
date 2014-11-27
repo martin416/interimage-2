@@ -15,11 +15,8 @@ limitations under the License.*/
 package br.puc_rio.ele.lvc.interimage.geometry.udf;
 
 import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.net.URL;
 import java.net.URLConnection;
@@ -30,7 +27,6 @@ import org.apache.pig.EvalFunc;
 import org.apache.pig.data.DataType;
 import org.apache.pig.data.Tuple;
 import org.apache.pig.impl.logicalLayer.schema.Schema;
-import org.iq80.snappy.SnappyInputStream;
 
 import br.puc_rio.ele.lvc.interimage.common.GeometryParser;
 import br.puc_rio.ele.lvc.interimage.common.Tile;
@@ -38,7 +34,6 @@ import br.puc_rio.ele.lvc.interimage.common.Tile;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.index.strtree.STRtree;
 import com.vividsolutions.jts.io.WKTReader;
-import com.google.common.io.ByteStreams;
 
 /**
  * A UDF that filters geometries with respect to a list of ROIs.<br><br>
@@ -120,7 +115,23 @@ public class SpatialFilter extends EvalFunc<Boolean> {
 	        	
 	        	if (!_roiUrl.isEmpty()) {
 	        		
-	        		if (_roiUrl.endsWith(".wkts")) {
+	        		URL url  = new URL(_roiUrl);	        		
+	                URLConnection urlConn = url.openConnection();
+	                urlConn.connect();
+			        InputStream buff = new BufferedInputStream(urlConn.getInputStream());				    	    	        
+			        ObjectInputStream in = new ObjectInputStream(buff);
+	    			
+	    		    List<br.puc_rio.ele.lvc.interimage.common.Shape> shapes = (List<br.puc_rio.ele.lvc.interimage.common.Shape>)in.readObject();
+	    		    
+	    		    in.close();
+				    
+				    for (br.puc_rio.ele.lvc.interimage.common.Shape t : shapes) {				    	
+				    	Geometry geometry = new WKTReader().read(t.getGeometry());
+				    	_roiIndex.insert(geometry.getEnvelopeInternal(),t);
+			        	_gridIds.addAll(_gridIndex.query(geometry.getEnvelopeInternal()));
+				    }
+	        		
+	        		/*if (_roiUrl.endsWith(".wkts")) {
 	        			
 	        			URL url  = new URL(_roiUrl);	        		
 		                URLConnection urlConn = url.openConnection();
@@ -155,7 +166,7 @@ public class SpatialFilter extends EvalFunc<Boolean> {
 				        	_gridIds.addAll(_gridIndex.query(geometry.getEnvelopeInternal()));
 				        }
 				        
-	        		}
+	        		}*/
 
 	        	}
 	        } catch (Exception e) {
@@ -177,16 +188,18 @@ public class SpatialFilter extends EvalFunc<Boolean> {
 		        if (_gridIds.contains(tileStr)) {
 		        	Geometry geometry = _geometryParser.parseGeometry(objGeometry);
 		        	
-	        		List<Geometry> list = _roiIndex.query(geometry.getEnvelopeInternal());
+	        		List<br.puc_rio.ele.lvc.interimage.common.Shape> list = _roiIndex.query(geometry.getEnvelopeInternal());
 	        	
-		        	for (Geometry geom : list) {
+		        	for (br.puc_rio.ele.lvc.interimage.common.Shape shape : list) {
+		        		
+		        		Geometry geom = new WKTReader().read(shape.getGeometry());
 		        		
 		        		boolean bool = false;
 		        		
 		        		if (_filterType.equals("intersection")) {
 		        			bool = geom.intersects(geometry);
-		        		} else if (_filterType.equals("containment")) {
-		        			bool = geom.contains(geometry);
+		        		} else if (_filterType.equals("containment")) {		        			
+		        			bool = geom.covers(geometry);
 		        		} else {
 		        			bool = geom.intersects(geometry);
 		        		}

@@ -225,6 +225,11 @@ public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 		
 		for (gNode node : nodes )
 		{
+			
+			if (!node.isEnabled()) {
+				continue;
+			}
+			
 			if (node.isRunning())
 			{
 				

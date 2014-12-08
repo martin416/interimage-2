@@ -135,7 +135,12 @@ public class Project {
 			/*Setting reduce parallelism*/
 			int clusterSize = Integer.parseInt(_properties.getProperty("interimage.clusterSize"));
 			//int parallel = (int)Math.round(clusterSize * 0.8);
-			int parallel = (int)Math.round((clusterSize-1)*8*0.95);
+			
+			int cores = Integer.parseInt(_properties.getProperty("interimage.cores"));
+			
+			int reduceSlotsPerTasktracker = (int)Math.round(cores*2);
+			
+			int parallel = (int)Math.round((clusterSize-1)*reduceSlotsPerTasktracker);
 			
 			_properties.setProperty("interimage.parallel", String.valueOf(parallel));
 			
@@ -298,7 +303,7 @@ public class Project {
 				    	
 				    	_shapeList.add(key, shp);
 				    	
-				    	if (true) {
+				    	if (_upload) {
 				    	
 					    	if (splittable) {
 					    		_dataManager.setupResource(new SplittableResource(shp,SplittableResource.SHAPE), _tileManager, _projectName, URL.getPath(_projectPath));

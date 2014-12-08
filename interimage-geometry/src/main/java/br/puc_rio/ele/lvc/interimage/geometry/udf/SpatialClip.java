@@ -51,7 +51,8 @@ import com.vividsolutions.jts.io.WKTWriter;
  * Some observations:<br>
  * 1 - The geometries that do not intersect any ROI will be filtered out<br>
  * 2 - The geometries that intersect more than one ROI will produce the respective number of tuples<br>
- * 3 - Makes no sense to call this UDF after SpatialFilter when it is used with the 'containment' filter type
+ * 3 - The output geometries will contain the iiuuid of their parent ROI in the parent field
+ * 4 - Makes no sense to call this UDF after SpatialFilter when it is used with the 'containment' filter type
  * <br><br>
  * Example:<br>
  * 		A = load 'mydata1' as (geom, data, props);<br>
@@ -70,10 +71,13 @@ public class SpatialClip extends EvalFunc<DataBag> {
 	private String _roiUrl = null;
 	private String _gridUrl = null;
 	
+	private double _minArea;
+	
 	/**Constructor that takes the ROIs and the tiles grid URLs.*/
-	public SpatialClip(String roiUrl, String gridUrl) {
+	public SpatialClip(String roiUrl, String gridUrl, String minArea) {
 		_roiUrl = roiUrl;
 		_gridUrl = gridUrl;
+		_minArea = Double.parseDouble(minArea);
 	}
 	
 	/**
@@ -228,16 +232,24 @@ public class SpatialClip extends EvalFunc<DataBag> {
 							} else if (g.getNumGeometries()==1) {
 								if (!(g instanceof Polygon))
 									continue;										
-							} /*else if (geometry.isEmpty()) {
+							} else if (g.isEmpty()) {
 								continue;
-							}*/
+							}
 		        			
 		        			for (int k=0; k<g.getNumGeometries(); k++) {//separating polygons in different records
 		        			
 			        			//byte[] bytes = new WKBWriter().write(g.getGeometryN(k));
 			        			
+		        				Geometry aux_geom = g.getGeometryN(k);
+		        				
+		        				if (!(aux_geom instanceof Polygon))
+		        					continue;
+		        				
+		        				if (aux_geom.getArea() < _minArea)
+		        					continue;
+		        				
 			        			Tuple t = TupleFactory.getInstance().newTuple(3);
-			        			t.set(0,new WKTWriter().write(g.getGeometryN(k)));
+			        			t.set(0,new WKTWriter().write(aux_geom));
 			        			t.set(1,new HashMap<String,String>(data));
 			        			
 			        			HashMap<String,Object> props = new HashMap<String,Object>(properties);

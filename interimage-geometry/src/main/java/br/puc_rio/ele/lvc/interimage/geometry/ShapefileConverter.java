@@ -67,6 +67,37 @@ public class ShapefileConverter {
 	static final byte[] STREAM_HEADER = new byte[] { 's', 'n', 'a', 'p', 'p', 'y', 0};
 	
 	/**
+	 * Converts JSON files to Shapefiles (whole folder).<br>
+	 * @param input JSON files folder<br>
+	 * output shapefiles folder
+	 */	
+	public static void JSONToShapefileF(String jsonPath, String shpPath, List<String> names, boolean keep, String crsFrom, String crsTo, boolean compressed) {
+			
+		File f = new File(shpPath);
+		
+		for (final File fileEntry : f.listFiles()) {
+	        if (fileEntry.isDirectory()) {
+	        	//ignore
+	        } else {
+	        	String name = fileEntry.getName();
+	        	if ((name.contains(".shp")) || (name.contains(".dbf")) || (name.contains(".shx")))
+	        		fileEntry.delete();
+	        }
+	    }
+		
+		File folder = new File(jsonPath);
+		
+		for (final File fileEntry : folder.listFiles()) {
+	        if (fileEntry.isDirectory()) {
+	        	//ignore
+	        } else {
+	        	JSONToShapefile(jsonPath + "/" + fileEntry.getName(), shpPath + "/" + fileEntry.getName() + ".shp", names, keep, crsFrom, crsTo, compressed);
+	        }
+	    }
+		
+	}
+	
+	/**
 	 * Converts from Shapefile to JSON format.<br><br>
 	 * This method also:<br>
 	 * 1) Converts the reference system<br>
@@ -661,7 +692,7 @@ public class ShapefileConverter {
 	        	while (true) {
 	        		
 	        		JsonToken token = jParser.nextToken();
-	        		
+	        			        		
 	        		if (token==JsonToken.END_OBJECT)
 	        			countEndObject++;
 	        		
@@ -669,13 +700,13 @@ public class ShapefileConverter {
 	        			break;
 	        		
 	        		String fieldname = jParser.getCurrentName();
-	        		
+	        			        		
 	        		if ("geometry".equals(fieldname)) {
 	        			jParser.nextToken();
 	        			
 	        			//TODO: Should work with wkb
 	        			geometry = geometryParser.parseGeometry(jParser.getText());
-	        			
+	        				        			
 	        			CRS.convert(crsFrom, crsTo, geometry);
 	                    
 	        			Envelope envelope = geometry.getEnvelopeInternal();
@@ -711,7 +742,7 @@ public class ShapefileConverter {
 	        			while (jParser.nextToken() != JsonToken.END_OBJECT) {
 
 	        				String columnName = jParser.getText();
-	        				
+	        					        				
 	        				boolean bool;
 		                	
 		                	if (names != null) {
@@ -735,7 +766,7 @@ public class ShapefileConverter {
 	        				if (bool) {
 	        					
 	        					String value = jParser.getText().trim();
-	        					
+	        						        					
 		        				try {
 			                		//Tests if it's an integer
 			                	    @SuppressWarnings("unused")

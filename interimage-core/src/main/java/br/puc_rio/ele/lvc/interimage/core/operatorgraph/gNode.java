@@ -11,11 +11,12 @@ public abstract class gNode {
 	private boolean running_=false;
 	private boolean available_=true;
 	private boolean executed_=false;
+	private boolean enabled_=true;
 	private int requests_=0;
     static final AtomicLong NEXT_ID = new AtomicLong(0);
-    final long id_ = NEXT_ID.getAndIncrement();    
+    final long id_ = NEXT_ID.getAndIncrement();
  	
-	public void run(ClusterManager clusterManager, String clusterId, boolean setup){
+	public void run(ClusterManager clusterManager, String clusterId, boolean setup){		
 		this.setRunning(true);
 		//exec something	
 		execute(clusterManager, clusterId, setup);
@@ -25,6 +26,14 @@ public abstract class gNode {
 	}
 
 	protected abstract int execute(ClusterManager clusterManager, String clusterId, boolean setup);
+	
+	public boolean isEnabled() {
+		return enabled_;
+	}
+	
+	public void setEnabled(boolean enabled) {
+		enabled_ = enabled;
+	}
 	
 	public boolean isRunning() {
 		return running_;

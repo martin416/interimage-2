@@ -143,8 +143,8 @@ public class FixedGridTileManager implements TileManager {
 		
 		long id = Long.parseLong(code.substring(1)); 
 		
-		int i = (int)id % _numTilesX;
-		int j = (int)id / _numTilesX;
+		int i = (int)(id-1) % _numTilesX;
+		int j = (int)(id-1) / _numTilesX;
 		
 		//N
 		if (directions.contains("N")) {

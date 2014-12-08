@@ -8,9 +8,14 @@ import java.util.Map;
 import java.util.Properties;
 
 import com.vividsolutions.jts.geom.Geometry;
+import com.vividsolutions.jts.geom.PrecisionModel;
 import com.vividsolutions.jts.io.WKTReader;
+import com.vividsolutions.jts.precision.GeometryPrecisionReducer;
+import com.vividsolutions.jts.simplify.TopologyPreservingSimplifier;
 
+import br.puc_rio.ele.lvc.interimage.common.SFCTileManager;
 import br.puc_rio.ele.lvc.interimage.common.SpatialIndex;
+import br.puc_rio.ele.lvc.interimage.common.TileManager;
 import br.puc_rio.ele.lvc.interimage.core.project.Project;
 import br.puc_rio.ele.lvc.interimage.core.operatorgraph.PigParser;
 import br.puc_rio.ele.lvc.interimage.core.operatorgraph.gClusterOperator;
@@ -32,6 +37,7 @@ public class Example {
 		
 		//int clusterSize = Integer.parseInt(props.getProperty("interimage.clusterSize"));
 		double tileSizeMeters = Double.parseDouble(props.getProperty("interimage.tileSizeMeters"));		
+		double minResolution = Double.parseDouble(props.getProperty("interimage.minResolution"));
 		
 		//PigParser parser = new PigParser();
 		//parser.setup(props);
@@ -48,13 +54,17 @@ public class Example {
 		op1.setProperties(props);
 		op1.setParameter("$IMAGE_KEY","image");
 		op1.setParameter("$SCALE","21");
-		op1.setParameter("$WCOLOR","0.75");
+		op1.setParameter("$WCOLOR","0.25");
 		op1.setParameter("$WCOMPACTNESS","0.61");
-		op1.setParameter("$WBANDS","0.24,0.07,0.42,0.26");
-		op1.setParameter("$CLASS","Unknown");
+		op1.setParameter("$WBANDS","0.24,0.07,0.41,0.26");
+		op1.setParameter("$CLASS","None");
+		op1.setParameter("$INPUT_ROI",props.getProperty("interimage.sourceURL") + "interimage/" + props.getProperty("interimage.projectName") + "/resources/shapes/blocks.ser");
+		op1.setParameter("$CLIP_MIN_AREA",String.valueOf(1.0*minResolution*minResolution));		
 		op1.setParameter("$RELIABILITY","0.3");
 		op1.setParameter("$STORE","true");
 		op1.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op1_segmentation" /*+ randomGenerator.nextInt(100000)*/);
+		
+		op1.setEnabled(false);
 		
 		/*Map<String,String> params = new HashMap<String, String>();
 		
@@ -72,14 +82,37 @@ public class Example {
 		
 		op1.setParameters(params);*/
 						
+		
+		/*Another operator executes a segmentation for non-vegetated areas*/
+		
+		gClusterOperator opa = g1.addClusterOperator();
+		
+		//op1.setParser(parser);
+		opa.setOperatorName("MutualMultiresolutionSegmentation");
+		opa.setProperties(props);
+		opa.setParameter("$IMAGE_KEY","image");
+		opa.setParameter("$SCALE","40");
+		opa.setParameter("$WCOLOR","0.3");
+		opa.setParameter("$WCOMPACTNESS","0.8");
+		opa.setParameter("$WBANDS","1,1,1,0");
+		opa.setParameter("$CLASS","None");
+		opa.setParameter("$INPUT_ROI",props.getProperty("interimage.sourceURL") + "interimage/" + props.getProperty("interimage.projectName") + "/resources/shapes/blocks.ser");
+		opa.setParameter("$CLIP_MIN_AREA",String.valueOf(1.0*minResolution*minResolution));
+		opa.setParameter("$RELIABILITY","0.3");
+		opa.setParameter("$STORE","true");
+		opa.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/opa_segmentation" /*+ randomGenerator.nextInt(100000)*/);
+				
+		opa.setEnabled(false);
+		
 		/*Second operator executes trees / grass classification*/
 		
 		gClusterOperator op2 = g1.addClusterOperator();
 		
-		String script2 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n" 
+		String script2 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n"
 				+ "DEFINE SpectralFeatures br.puc_rio.ele.lvc.interimage.data.udf.SpectralFeatures('$IMAGES_PATH','mean2 = mean(image_layer2);mean3 = mean(image_layer3);ratio4 = ratio(image_layer4);','" + String.valueOf(tileSizeMeters) + "');\n\n"
 				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n" 
 				+ "group = II_SpectralFeatures($LAST_RELATION, $PARALLEL);\n\n"
+				+ "selection = FILTER $LAST_RELATION BY II_IsValid(null, properties, 'mean2,mean3,ratio4');\n\n"
 				+ "selection = FILTER $LAST_RELATION BY properties#'ratio4' > 0.2988;\n\n"
 				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Grass',II_Min(II_Membership('ml2grass',properties#'mean2'), II_Membership('ml3grass',properties#'mean3')),properties) as properties;\n\n"
 				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Trees',II_Min(II_Membership('ml2trees',properties#'mean2'), II_Membership('ml3trees',properties#'mean3')),properties) as properties;\n\n"
@@ -99,7 +132,9 @@ public class Example {
 		op2.setParameter("$STORE","true");
 		op2.setParameter("$INPUT_PATH", op1.getOutputPath());
 		op2.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op2_vegetation" /*+ randomGenerator.nextInt(100000)*/);
-				
+			
+		op2.setEnabled(false);
+		
 		g1.addEdge(op1, op2);
 		
 		/*Third operator executes grey / blue / pools classification*/
@@ -107,12 +142,13 @@ public class Example {
 		gClusterOperator op3 = g1.addClusterOperator();
 		
 		//TODO: It's possible to optimize this rule, defining a single selection for Dark, Grey and BrightGrey classes
-		//TODO: Consider a different segmentation for these classes
 		
-		String script3 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n" 
+		String script3 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n"
+				+ "DEFINE II_SpatialResolve br.puc_rio.ele.lvc.interimage.data.udf.SpatialResolve('$RESOLVE_MIN_AREA','$IMAGES_PATH','image');\n\n"
 				+ "DEFINE SpectralFeatures br.puc_rio.ele.lvc.interimage.data.udf.SpectralFeatures('$IMAGES_PATH','brightness = brightness(image);mean1 = mean(image_layer1);bandMeanDiv31 = bandMeanDiv(image_layer3,image_layer1);maxPixVal1 = maxPixelValue(image_layer1);ratio2 = ratio(image_layer2);','" + String.valueOf(tileSizeMeters) + "');\n\n"
 				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n" 
 				+ "group = II_SpectralFeatures($LAST_RELATION, $PARALLEL);\n\n"
+				+ "selection = FILTER $LAST_RELATION BY II_IsValid(null, properties, 'brightness,mean1,bandMeanDiv31,maxPixVal1,ratio2');\n\n"
 				+ "wfeatures = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(II_Area(geometry),'area',properties) as properties;\n\n"
 				
 				+ "selection = FILTER $LAST_RELATION BY properties#'brightness' > 208;\n\n"				
@@ -141,7 +177,7 @@ public class Example {
 				
 				+ "group = COGROUP bright_2 BY properties#'tile', dark_2 BY properties#'tile', grey_2 BY properties#'tile', brightgrey_2 BY properties#'tile', blue_2 BY properties#'tile', pools_2 BY properties#'tile' PARALLEL $PARALLEL;\n\n"
 				
-				+ "projection = FOREACH $LAST_RELATION GENERATE FLATTEN(II_SpatialResolve(bright_2, dark_2, grey_2, brightgrey_2, blue_2, pools_2)) AS (geometry:bytearray, data:map[], properties:map[]);\n\n";
+				+ "projection = FOREACH $LAST_RELATION GENERATE FLATTEN(II_SpatialResolve(bright_2, dark_2, grey_2, brightgrey_2, blue_2, pools_2)) AS (geometry:chararray, data:map[chararray], properties:map[bytearray]);\n\n";
 										
 		/*Map<String,String> params3 = new HashMap<String, String>();
 
@@ -154,11 +190,14 @@ public class Example {
 		//op3.setParser(parser);
 		op3.setProperties(props);
 		op3.setScript(script3);
+		op3.setParameter("$RESOLVE_MIN_AREA", String.valueOf(1.0*minResolution*minResolution));
 		op3.setParameter("$STORE","true");
-		op3.setParameter("$INPUT_PATH", op1.getOutputPath());
+		op3.setParameter("$INPUT_PATH", opa.getOutputPath());
 		op3.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op3_other_classes" /*+ randomGenerator.nextInt(100000)*/);
 				
-		g1.addEdge(op1, op3);
+		//op3.setEnabled(false);
+		
+		g1.addEdge(opa, op3);
 		
 		/*Fourth operator executes shadow classification*/
 		
@@ -171,24 +210,28 @@ public class Example {
 		op4.setParameter("$THRESHOLDS", "0,20");
 		op4.setParameter("$CLASSES", "Shadow");
 		op4.setParameter("$OPERATION", "Brightness");
-		op4.setParameter("$MIN_AREA", String.valueOf(5.0*Double.parseDouble(props.getProperty("interimage.minResolution"))));
+		op4.setParameter("$MIN_AREA", String.valueOf(5.0*minResolution*minResolution));
+		op4.setParameter("$INPUT_ROI",props.getProperty("interimage.sourceURL") + "interimage/" + props.getProperty("interimage.projectName") + "/resources/shapes/blocks.ser");
+		op4.setParameter("$CLIP_MIN_AREA",String.valueOf(1.0*minResolution*minResolution));
 		op4.setParameter("$RELIABILITY", "0.3");
 		op4.setParameter("$STORE","true");
 		//op4.setParameter("$INPUT_PATH", op1.getOutputPath());
 		op4.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op4_shadow" /*+ randomGenerator.nextInt(100000)*/);
-				
+		
+		op4.setEnabled(false);
+		
 		//g.addEdge(op1, op4);
 		
 		/*Fifth operator executes red roofs classification*/
 		
 		//TODO: consider bare soil shape file
-		//TODO: consider a different segmentation for these classes
 		
 		gClusterOperator op5 = g1.addClusterOperator();
 		
 		String script5 = "DEFINE SpectralFeatures br.puc_rio.ele.lvc.interimage.data.udf.SpectralFeatures('$IMAGES_PATH','bandMeanDiv31 = bandMeanDiv(image_layer3,image_layer1);','" + String.valueOf(tileSizeMeters) + "');\n\n"
 				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n" 
 				+ "group = II_SpectralFeatures($LAST_RELATION, $PARALLEL);\n\n"
+				+ "selection = FILTER $LAST_RELATION BY II_IsValid(null, properties, 'bandMeanDiv31');\n\n"
 				+ "selection = FILTER $LAST_RELATION BY properties#'bandMeanDiv31' > 1.5;\n\n"				
 				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('CeramicRoof', 0.8, properties) as properties;\n\n"
 				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n";
@@ -197,16 +240,19 @@ public class Example {
 		op5.setProperties(props);
 		op5.setScript(script5);
 		op5.setParameter("$STORE","true");
-		op5.setParameter("$INPUT_PATH", op1.getOutputPath());
+		op5.setParameter("$INPUT_PATH", opa.getOutputPath());
 		op5.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op5_ceramic_roof" /*+ randomGenerator.nextInt(100000)*/);
 				
-		g1.addEdge(op1, op5);
+		op5.setEnabled(false);
+		
+		g1.addEdge(opa, op5);
 		
 		/*Spatial resolve*/
 		
 		gClusterOperator op6 = g1.addClusterOperator();
 		
-		String script6 = "DEFINE II_SelectClass br.puc_rio.ele.lvc.interimage.common.udf.SelectClass('$SEMANTICNET_FILE');\n\n" 
+		String script6 = "DEFINE II_SelectClass br.puc_rio.ele.lvc.interimage.common.udf.SelectClass('$SEMANTICNET_FILE');\n\n"
+				+ "DEFINE II_SpatialResolve br.puc_rio.ele.lvc.interimage.data.udf.SpatialResolve('$RESOLVE_MIN_AREA','$IMAGES_PATH','image');\n\n"
 				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n" 
 				+ "selection = FILTER load_1 BY II_SelectClass(properties#'class','Shadow');\n\n"
 				+ "shadow = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(1.0, 'membership', properties) as properties;\n\n"
@@ -217,15 +263,18 @@ public class Example {
 				+ "selection = FILTER load_1 BY II_SelectClass(properties#'class','Vegetation');\n\n"
 				+ "vegetation = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(0.6, 'membership', properties) as properties;\n\n"
 				+ "group = COGROUP shadow_1 BY properties#'tile', ceramicroof_1 BY properties#'tile', otherclasses_1 BY properties#'tile', vegetation_1 BY properties#'tile' PARALLEL $PARALLEL;\n\n"
-				+ "projection = FOREACH $LAST_RELATION GENERATE FLATTEN(II_SpatialResolve(shadow_1, ceramicroof_1, otherclasses_1, vegetation_1)) AS (geometry:bytearray, data:map[], properties:map[]);\n\n";
+				+ "projection = FOREACH $LAST_RELATION GENERATE FLATTEN(II_SpatialResolve(shadow_1, ceramicroof_1, otherclasses_1, vegetation_1)) AS (geometry:chararray, data:map[chararray], properties:map[bytearray]);\n\n";
 		
 		//op6.setParser(parser);
 		op6.setProperties(props);
 		op6.setScript(script6);
 		op6.setParameter("$STORE","true");
+		op6.setParameter("$RESOLVE_MIN_AREA", String.valueOf(1.0*minResolution*minResolution));
 		op6.setParameter("$INPUT_PATH", op2.getOutputPath() + "," + op3.getOutputPath() + "," + op4.getOutputPath() + "," + op5.getOutputPath());
 		op6.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op6_all" /*+ randomGenerator.nextInt(100000)*/);
 				
+		//op6.setEnabled(false);
+		
 		g1.addEdge(op2, op6);
 		g1.addEdge(op3, op6);
 		g1.addEdge(op4, op6);
@@ -238,7 +287,7 @@ public class Example {
 		//op5.run(null, "", false);
 		//op6.run(null, "", false);
 		
-		//g1.execute();
+		g1.execute();
 	
 		
 		/*Second project*/
@@ -255,7 +304,7 @@ public class Example {
 				+ "blocks = LOAD '$AUX_INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
 				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
 				+ "group = COGROUP load_1 BY properties#'parent', blocks_1 BY properties#'iiuuid' PARALLEL $PARALLEL;\n\n"
-				+ "projection = FOREACH $LAST_RELATION GENERATE FLATTEN(II_AggregationFeatures(blocks_1, load_1)) AS (geometry:bytearray, data:map[], properties:map[]);\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE FLATTEN(II_AggregationFeatures(blocks_1, load_1)) AS (geometry:chararray, data:map[chararray], properties:map[bytearray]);\n\n"
 				+ "\n\n";
 		
 		//op6.setParser(parser);
@@ -266,7 +315,7 @@ public class Example {
 		op7.setParameter("$INPUT_PATH", op6.getOutputPath());
 		op7.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op7_blocks" /*+ randomGenerator.nextInt(100000)*/);
 		
-		op7.run(null, "", false);
+		//op7.run(null, "", false);
 		
 		//g2.execute();
 		
@@ -367,7 +416,7 @@ public class Example {
 		
 		try{
 		FileOutputStream file = new FileOutputStream("C:\\Users\\Rodrigo\\Documents\\workshop\\exercise13\\script.pig");
-		file.write(parser.parse("MutualMultiresolutionSegmentation").getBytes());
+		file.write(parser.parse("MutualMultiresolutionSegmentation", true).getBytes());
 		file.close();
 		} catch(Exception e) {
 			
@@ -388,9 +437,10 @@ public class Example {
 	
 	public static void JSONToShapefile() {
 		
-		//ShapefileConverter.JSONToShapefile("C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\resultados_class_final\\part-r-00000","C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\resultados_class_final\\part-r-00000.shp", Arrays.asList("crs", "tile", "membership", "iiuuid", "class"), true, null, null, false);
+		ShapefileConverter.JSONToShapefileF("C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\land_cover",
+		"C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\land_cover", Arrays.asList("class", "classification", "tile", "crs", "membership", "iiuuid", "parent"), true, null, null, false);
 		
-		ShapefileConverter.WKTToShapefile("C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\tiles.wkt", "C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\tiles.shp", null, null);
+		//ShapefileConverter.WKTToShapefile("C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\part-m-00000", "C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\part-m-00000.shp", null, null);
 		
 	}
 	
@@ -427,9 +477,37 @@ public class Example {
 		}
 		
 	}
+		
+	public static void test2() {
+		
+		try {
+		
+			System.out.println(1.2/2);
+			
+		Geometry geom1 = new WKTReader().read("POLYGON ((325778.36570758343 7386874.97198919, 325777.20100076665 7386874.647671362, 325776.60018258 7386874.514768679, 325776.60018258 7386874.79987196, 325776.60018258 7386875.39987198, 325776.00018256 7386875.39987198, 325775.40018254 7386875.39987198, 325775.40018254 7386875.999872, 325775.40018254 7386876.59987202, 325775.40018254 7386877.19987204, 325775.40018254 7386877.79987206, 325776.00018256 7386877.79987206, 325776.00018256 7386878.39987208, 325776.60018258 7386878.39987208, 325776.60018258 7386878.9998721, 325776.60018258 7386879.59987212, 325777.2001826 7386879.59987212, 325777.80018262 7386879.59987212, 325778.40018264 7386879.59987212, 325778.40018264 7386880.19987214, 325779.00018266 7386880.19987214, 325779.00018266 7386879.59987212, 325779.00018266 7386878.9998721, 325779.00018266 7386878.39987208, 325779.00018266 7386877.79987206, 325779.00018266 7386877.19987204, 325779.00018266 7386876.59987202, 325779.00018266 7386875.999872, 325779.00018266 7386875.39987198, 325778.40018264 7386875.39987198, 325778.40018264 7386875.999872, 325778.40018264 7386876.59987202, 325778.40018264 7386877.19987204, 325777.80018262 7386877.19987204, 325777.80018262 7386877.79987206, 325777.2001826 7386877.79987206, 325777.2001826 7386877.19987204, 325776.60018258 7386877.19987204, 325776.00018256 7386877.19987204, 325776.00018256 7386876.59987202, 325776.00018256 7386875.999872, 325776.60018258 7386875.999872, 325777.2001826 7386875.999872, 325777.2001826 7386875.39987198, 325777.80018262 7386875.39987198, 325777.80018262 7386874.814516232, 325778.36570758343 7386874.97198919))");
+
+		Geometry geom2 = new WKTReader().read("POLYGON ((325779.00018266 7386875.39987198, 325778.40018264 7386875.39987198, 325778.40018264 7386875.999872, 325778.40018264 7386876.59987202, 325778.40018264 7386877.19987204, 325777.80018262 7386877.19987204, 325777.80018262 7386877.79987206, 325777.2001826 7386877.79987206, 325777.2001826 7386877.19987204, 325776.60018258 7386877.19987204, 325776.00018256 7386877.19987204, 325776.00018256 7386876.59987202, 325776.00018256 7386875.999872, 325776.60018258 7386875.999872, 325777.2001826 7386875.999872, 325777.2001826 7386875.39987198, 325777.80018262 7386875.39987198, 325777.80018262 7386874.814516232, 325778.1320698483 7386874.906931717, 325777.20100076665 7386874.647671362, 325770.60018238 7386873.1875516465, 325770.60018238 7386873.59987192, 325771.2001824 7386873.59987192, 325771.80018242 7386873.59987192, 325771.80018242 7386873.4529950535, 325775.1766169946 7386874.199871941, 325774.80018252 7386874.199871941, 325774.80018252 7386874.79987196, 325774.80018252 7386875.39987198, 325774.80018252 7386875.999872, 325774.80018252 7386876.59987202, 325775.40018254 7386876.59987202, 325775.40018254 7386877.19987204, 325775.40018254 7386877.79987206, 325776.00018256 7386877.79987206, 325776.60018258 7386877.79987206, 325776.60018258 7386878.39987208, 325776.60018258 7386878.9998721, 325776.60018258 7386879.59987212, 325777.2001826 7386879.59987212, 325777.80018262 7386879.59987212, 325778.40018264 7386879.59987212, 325778.40018264 7386880.19987214, 325778.40018264 7386880.79987216, 325779.00018266 7386880.79987216, 325779.00018266 7386880.19987214, 325779.00018266 7386879.59987212, 325779.00018266 7386878.9998721, 325779.00018266 7386878.39987208, 325779.00018266 7386877.79987206, 325779.00018266 7386877.19987204, 325779.00018266 7386876.59987202, 325779.00018266 7386875.999872, 325779.00018266 7386875.39987198))");
+		
+		//GeometryPrecisionReducer reducer = new GeometryPrecisionReducer(new PrecisionModel(1000000.0));		
+		//System.out.println(reducer.reduce(geom2).difference(reducer.reduce(geom1)));
+			
+		geom2 = geom2.buffer(0);
+		geom1 = geom1.buffer(0);
+		
+		geom2 = geom2.difference(geom1);
+		
+		System.out.println(geom2);
+		
+		} catch (Exception e) {
+			System.out.println("ERRO - " + e.getMessage());
+		}
+		
+	}
 	
 	public static void main(String[] args) {
 
+		//test2();
+		
 		//test();
 		
 		JSONToShapefile();

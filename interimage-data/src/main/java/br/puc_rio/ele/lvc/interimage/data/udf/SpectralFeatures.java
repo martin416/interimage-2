@@ -196,7 +196,7 @@ public class SpectralFeatures extends EvalFunc<DataBag> {
 					tiles.add("T" + (tileId+_tileManager.getNumTilesX()));
 					tiles.add("T" + (tileId+_tileManager.getNumTilesX()+1));*/
 				
-					List<String> tiles = _tileManager.getNeighourTiles(tileStr, Arrays.asList("N","NE","E"));
+					List<String> tiles = _tileManager.getNeighourTiles(tileStr, Arrays.asList("N","NE","E"));					
 					tiles.add(tileStr);
 					
 				//TODO: Think about multiple assignment, works for single 

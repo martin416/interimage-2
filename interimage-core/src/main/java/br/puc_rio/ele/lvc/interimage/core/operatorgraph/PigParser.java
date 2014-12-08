@@ -35,6 +35,8 @@ public class PigParser {
 			
 	private String _projectPath;
 	private int _parallel;
+	private int _cores;
+	private int _clusterSize;
 	
 	private Map<String,String> _export;
 	
@@ -63,6 +65,8 @@ public class PigParser {
 		_sourceSpecificURL = properties.getProperty("interimage.sourceSpecificURL");
 		_projectName = properties.getProperty("interimage.projectName");
 		_parallel = Integer.parseInt(properties.getProperty("interimage.parallel"));
+		_cores = Integer.parseInt(properties.getProperty("interimage.cores"));
+		_clusterSize = Integer.parseInt(properties.getProperty("interimage.clusterSize"));
 		_crs = properties.getProperty("interimage.crs");
 		_tileSizeMeters = properties.getProperty("interimage.tileSizeMeters");
 		_params = new HashMap<String,String>();
@@ -242,8 +246,10 @@ public class PigParser {
 	    		boolean first2 = true;
 	    			    		
 	    		int totalSize = folder.list().length;
+	    			    		
+	    		int mapSlotsPerTasktracker = (int)Math.round(_cores*2);
 	    		
-	    		int blockSize = (int)Math.ceil(totalSize / (float)(_parallel));
+	    		int blockSize = (int)Math.ceil(totalSize / ((double)mapSlotsPerTasktracker*(_clusterSize-1)));
 	    			    		
 	    		int count1 = 1;
 	    		int count2 = 1;	        		
@@ -396,7 +402,7 @@ public class PigParser {
 	    		
 	    		String[] terms = line.split(" ");
 	    			    		
-	    		parsedScript = parsedScript + parse(terms[1]); 
+	    		parsedScript = parsedScript + parse(terms[1], false); 
 	    		
 	    	} else {
 	    		
@@ -428,7 +434,7 @@ public class PigParser {
 		
 	}
 	
-	public String parse(String str) {
+	public String parse(String str, boolean notInclude) {
 		
 		String script;
 		
@@ -462,18 +468,22 @@ public class PigParser {
 			e.printStackTrace();
 			System.out.println("It was not possible to parse the Pig script.");
 		}
-	    	
-		if (_specificParams.containsKey("$STORE")) {
-			
-			String relation = null;
-			
-			if (_specificParams.containsKey("$OUTPUT.ROI")) {
-				relation = _globalRelations.get(_globalRelations.size()-2);
-			} else {
-				relation = _globalRelations.get(_globalRelations.size()-1);
+	    
+		if (notInclude) {
+		
+			if (_specificParams.containsKey("$STORE")) {
+				
+				String relation = null;
+				
+				if (_specificParams.containsKey("$OUTPUT.ROI")) {
+					relation = _globalRelations.get(_globalRelations.size()-2);
+				} else {
+					relation = _globalRelations.get(_globalRelations.size()-1);
+				}
+				
+				parsedScript = parsedScript + "STORE " + relation + " INTO '" + _specificParams.get("$OUTPUT_PATH") + "' USING br.puc_rio.ele.lvc.interimage.common.udf.JsonStorage();\n";
 			}
 			
-			parsedScript = parsedScript + "STORE " + relation + " INTO '" + _specificParams.get("$OUTPUT_PATH") + "' USING br.puc_rio.ele.lvc.interimage.common.udf.JsonStorage();\n";
 		}
 		
 		return parsedScript;

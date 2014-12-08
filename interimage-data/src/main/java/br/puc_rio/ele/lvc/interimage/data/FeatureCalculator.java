@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 import net.imglib2.Cursor;
+import net.imglib2.RandomAccess;
 import net.imglib2.img.Img;
 import net.imglib2.img.array.ArrayImgFactory;
 import net.imglib2.ops.operation.iterable.unary.Max;
@@ -136,7 +137,7 @@ public class FeatureCalculator {
 						
 							Map<Integer,Object> map3 = new HashMap<Integer,Object>();
 							
-							////System.out.println("intersects");
+							//System.out.println("intersects");
 							
 							/*Gets the part of the polygon inside the tile*/
 							Geometry geom = tileGeom.intersection(geometry);
@@ -193,19 +194,26 @@ public class FeatureCalculator {
 								
 								/*Creates mask*/
 								mask = new ArrayImgFactory<BitType>().create(new long[] {width, height} , new BitType());
-								Cursor<BitType> c = mask.localizingCursor();
+								Cursor<BitType> c = mask.cursor();
 								
-								int idx = 0;
+								//int idx = 0;
 								int count = 0;
 								
 								geom = geom.buffer(0);
 								
 								PreparedGeometry prep = PreparedGeometryFactory.prepare(geom);
 								
+								int[] pos = new int[2];
+								
 								while(c.hasNext()) {
 									BitType t = c.next();
-									int x = idx%(width);
-									int y = idx/(width);
+									//int x = idx%(width);
+									//int y = idx/(width);
+									
+									c.localize(pos);
+									
+									int x = pos[0];
+									int y = pos[1];
 									
 									double centerPixelX = geoBBox[0] + (x*resX) + (resX/2);
 									double centerPixelY = geoBBox[3] + (y*resY) + (resY/2);
@@ -227,7 +235,7 @@ public class FeatureCalculator {
 									
 									t.set(b);
 									
-									idx++;
+									//idx++;
 								}
 								
 								masks.put(tile, mask);
@@ -261,15 +269,23 @@ public class FeatureCalculator {
 							for (int b=0; b<bands; b++) {
 								Img<DoubleType> img = new ArrayImgFactory<DoubleType>().create(new long[] {width, height}, new DoubleType());
 								imgs[b] = img;
-								cursors[b] = img.cursor();
+								cursors[b] = img.randomAccess();
 							}
-															
-							for (int j=bBox[3]; j<=bBox[1]; j++) {
-								for (int i=bBox[0]; i<=bBox[2]; i++) {
-									for (int b=0; b<bands; b++) {
-										double value = raster.getSampleDouble(i, j, b);
-										DoubleType pixelValue = ((Cursor < DoubleType >)cursors[b]).next();
-										pixelValue.set(value);
+									
+							for (int b=0; b<bands; b++) {
+								
+								RandomAccess<DoubleType> ra = (RandomAccess<DoubleType>)cursors[b];
+								
+								for (int j=bBox[3]; j<=bBox[1]; j++) {
+									for (int i=bBox[0]; i<=bBox[2]; i++) {
+										
+											double value = raster.getSampleDouble(i, j, b);
+											
+											ra.setPosition(i-bBox[0],0);
+											ra.setPosition(j-bBox[3],1);
+											
+											DoubleType pixelValue = ra.get();
+											pixelValue.set(value);
 									}
 								}
 							}

@@ -93,6 +93,10 @@ public class AWSClusterManager implements ClusterManager {
 		String hadoopVersion = properties_.getProperty("interimage.aws.hadoopVersion");
 		String region = properties_.getProperty("interimage.aws.region");
 		
+		int cores = Integer.parseInt(properties_.getProperty("interimage.cores"));
+		//long memory = Long.parseLong(properties_.getProperty("interimage.memory"));
+		int clusterSize = Integer.parseInt(properties_.getProperty("interimage.clusterSize"));
+		
 		StepFactory stepFactory = new StepFactory();
 		
 		StepConfig enableDebugging = null;
@@ -128,7 +132,7 @@ public class AWSClusterManager implements ClusterManager {
 		.withMarket(market)
 		.withInstanceType(instanceType)
 		.withInstanceRole("CORE")
-		.withInstanceCount(Integer.parseInt(properties_.getProperty("interimage.clusterSize"))-1)
+		.withInstanceCount(clusterSize-1)
 		.withBidPrice(bidPrice);		
 		
 		//General job flow settings		
@@ -141,11 +145,38 @@ public class AWSClusterManager implements ClusterManager {
         .withPlacement(new PlacementType(region));
         //.withMasterInstanceType("m1.xlarge")
         //.withSlaveInstanceType("m1.xlarge");
+
+		//int mapSlotsPerTasktracker = (int)Math.round(cores*1.5*(2.0/3.0));
+		int mapSlotsPerTasktracker = (int)Math.round(cores*2);
+		//int reduceSlotsPerTasktracker = (int)Math.round(cores*1.5*(1.0/3.0));
+		int reduceSlotsPerTasktracker = (int)Math.round(cores*2);
+		int heapSizeMBytes = 1500;
+		long heapSizeKBytes = heapSizeMBytes * 1024;
+		//long heapSizeBytes = heapSizeGBytes * 1024 * 1024 * 1024;
 		
 		//Bootstrap actions
-		List<BootstrapActionConfig> bootstrapList = Arrays.asList(bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "mapreduce.job.counters.limit", "1200").build(),
+		List<BootstrapActionConfig> bootstrapList = Arrays.asList(
+				bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "mapreduce.job.counters.limit", "1200").build(),
+				bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "mapred.task.timeout", "1800000").build(),
 				bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "mapred.reduce.tasks.speculative.execution", "false").build(),
-				bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "mapred.map.tasks.speculative.execution", "false").build());
+				bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "mapred.map.tasks.speculative.execution", "false").build(),
+				bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "mapred.tasktracker.map.tasks.maximum", String.valueOf(mapSlotsPerTasktracker)).build(),
+				bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "mapred.tasktracker.reduce.tasks.maximum", String.valueOf(reduceSlotsPerTasktracker)).build(),
+				//bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "mapred.reduce.slowstart.completed.maps", "0.8").build(),
+				//bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "tasktracker.http.threads", "64").build(),
+				bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "mapred.reduce.tasks", String.valueOf((int)Math.round((clusterSize-1)*reduceSlotsPerTasktracker))).build(),
+				//bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "mapred.reduce.parallel.copies", String.valueOf((int)Math.round(Math.log(clusterSize-1)*4))).build(),
+				bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "mapred.jobtracker.taskScheduler", "org.apache.hadoop.mapred.FairScheduler").build(),
+				//bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "mapred.job.tracker.handler.count", String.valueOf((int)Math.round(Math.log(clusterSize-1)*20))).build(),
+				bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "mapred.output.compression.type", "BLOCK").build(),
+				bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "mapred.map.output.compression.codec", "org.apache.hadoop.io.compress.SnappyCodec").build(),
+				bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "mapred.compress.map.output", "true").build(),
+				//bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "io.sort.factor", "64").build(),
+				//bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "io.sort.mb", "128").build(),
+				bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "mapred.child.ulimit", String.valueOf((int)heapSizeKBytes*1.5)).build(),
+				bootstrapActions.newConfigureHadoop().withKeyValue(BootstrapActions.ConfigFile.Mapred, "mapred.java.child.opts", "-Xmx" + String.valueOf(heapSizeMBytes) + "m").build()
+				);
+		
 				
 		RunJobFlowRequest request = new RunJobFlowRequest()
 	    .withName("Pig Interactive")

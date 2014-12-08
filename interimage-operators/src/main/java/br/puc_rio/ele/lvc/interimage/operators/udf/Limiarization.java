@@ -269,8 +269,6 @@ public class Limiarization extends EvalFunc<DataBag> {
 		        	
 		        		Geometry aux = union.getGeometryN(k);
 		        		
-		        		//TODO: Should be a parameter
-		        		
 		        		if (aux.getArea() < _minArea)
 		        			continue;
 		        		

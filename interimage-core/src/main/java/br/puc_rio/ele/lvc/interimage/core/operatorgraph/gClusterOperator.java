@@ -112,9 +112,11 @@ public class gClusterOperator extends gOperator {
 			
 			tilesPerTask = totalSize / ((clusterSize-1) * 8);*/
 			
+			script.append("SET default_parallel " + properties_.getProperty("interimage.parallel") + ";\n");
 			script.append("SET pig.tmpfilecompression true;\n");
 			script.append("SET pig.tmpfilecompression.codec lzo;\n");
 			script.append("SET pig.splitCombination true;\n");
+			
 			//script.append("SET pig.maxCombinedSplitSize ").append(tilesPerTask*tileRecordSize).append(";\n");
 			
 			/*Including JARs*/
@@ -136,15 +138,15 @@ public class gClusterOperator extends gOperator {
 		}
 		
 		if (script_ == null)
-			script.append(parser_.parse(operatorName_));
+			script.append(parser_.parse(operatorName_,true));
 		else
-			script.append(parser_.parse(script_));
+			script.append(parser_.parse(script_,true));
 		
 		//setOutputPath(parser_.getResult());
 		
 		System.out.println(script);
 		
-		//clusterManager.runPigScript(script.toString(), clusterId);
+		clusterManager.runPigScript(script.toString(), clusterId);
 		
 		return 0;
 	}

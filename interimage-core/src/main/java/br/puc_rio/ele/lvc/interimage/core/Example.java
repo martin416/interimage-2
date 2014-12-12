@@ -1,12 +1,15 @@
 package br.puc_rio.ele.lvc.interimage.core;
 
 import java.io.FileOutputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 
+import com.google.common.base.Joiner;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.PrecisionModel;
 import com.vividsolutions.jts.io.WKTReader;
@@ -143,41 +146,40 @@ public class Example {
 		
 		//TODO: It's possible to optimize this rule, defining a single selection for Dark, Grey and BrightGrey classes
 		
-		String script3 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n"
-				+ "DEFINE II_SpatialResolve br.puc_rio.ele.lvc.interimage.data.udf.SpatialResolve('$RESOLVE_MIN_AREA','$IMAGES_PATH','image');\n\n"
+		String script3 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n"				
 				+ "DEFINE SpectralFeatures br.puc_rio.ele.lvc.interimage.data.udf.SpectralFeatures('$IMAGES_PATH','brightness = brightness(image);mean1 = mean(image_layer1);bandMeanDiv31 = bandMeanDiv(image_layer3,image_layer1);maxPixVal1 = maxPixelValue(image_layer1);ratio2 = ratio(image_layer2);','" + String.valueOf(tileSizeMeters) + "');\n\n"
 				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n" 
 				+ "group = II_SpectralFeatures($LAST_RELATION, $PARALLEL);\n\n"
 				+ "selection = FILTER $LAST_RELATION BY II_IsValid(null, properties, 'brightness,mean1,bandMeanDiv31,maxPixVal1,ratio2');\n\n"
 				+ "wfeatures = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(II_Area(geometry),'area',properties) as properties;\n\n"
 				
-				+ "selection = FILTER $LAST_RELATION BY properties#'brightness' > 208;\n\n"				
+				+ "selection = FILTER $LAST_RELATION BY properties#'brightness' > 208.0;\n\n"				
 				+ "bright = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Bright', 1.0, properties) as properties;\n\n"
 				+ "bright = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
 				
-				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' < 0.2976) OR ((properties#'ratio2' > 0.2976) AND (properties#'maxPixVal1' < 116));\n\n"				
+				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' < 0.2976) OR ((properties#'ratio2' > 0.2976) AND (properties#'maxPixVal1' < 116.0));\n\n"				
 				+ "dark = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Dark',II_Min(II_Membership('ml1dark',properties#'mean1'), II_Membership('bdark',properties#'brightness')),properties) as properties;\n\n"
 				+ "dark = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
 				
-				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' < 0.2976) OR ((properties#'ratio2' > 0.2976) AND (properties#'maxPixVal1' < 116));\n\n"				
+				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' < 0.2976) OR ((properties#'ratio2' > 0.2976) AND (properties#'maxPixVal1' < 116.0));\n\n"				
 				+ "grey = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Grey',II_Min(II_Membership('ml1grey',properties#'mean1'), II_Membership('bgrey',properties#'brightness')),properties) as properties;\n\n"
 				+ "grey = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
 				
-				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' < 0.2976) OR ((properties#'ratio2' > 0.2976) AND (properties#'maxPixVal1' < 116));\n\n"				
+				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' < 0.2976) OR ((properties#'ratio2' > 0.2976) AND (properties#'maxPixVal1' < 116.0));\n\n"				
 				+ "brightgrey = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('BrightGrey',II_Min(II_Membership('ml1brightgrey',properties#'mean1'), II_Membership('bbrightgrey',properties#'brightness')),properties) as properties;\n\n"
 				+ "brightgrey = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
 				
-				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' < 0.355) AND (properties#'brightness' < 208) AND (properties#'bandMeanDiv31' < 1.5) AND (properties#'maxPixVal1' > 116) AND (properties#'ratio2' > 0.2976);\n\n"
+				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' < 0.355) AND (properties#'brightness' < 208.0) AND (properties#'bandMeanDiv31' < 1.5) AND (properties#'maxPixVal1' > 116.0) AND (properties#'ratio2' > 0.2976);\n\n"
 				+ "blue = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Blue', 0.0, properties) as properties;\n\n"
 				+ "blue = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
 				
-				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' > 0.355) OR ((properties#'ratio2' < 0.355) AND (properties#'area' < 80));\n\n"
+				+ "selection = FILTER wfeatures_1 BY (properties#'ratio2' > 0.355) OR ((properties#'ratio2' < 0.355) AND (properties#'area' < 80.0));\n\n"
 				+ "pools = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Pools', 0.0, properties) as properties;\n\n"
 				+ "pools = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"				
 				
 				+ "group = COGROUP bright_2 BY properties#'tile', dark_2 BY properties#'tile', grey_2 BY properties#'tile', brightgrey_2 BY properties#'tile', blue_2 BY properties#'tile', pools_2 BY properties#'tile' PARALLEL $PARALLEL;\n\n"
 				
-				+ "projection = FOREACH $LAST_RELATION GENERATE FLATTEN(II_SpatialResolve(bright_2, dark_2, grey_2, brightgrey_2, blue_2, pools_2)) AS (geometry:chararray, data:map[chararray], properties:map[bytearray]);\n\n";
+				+ "projection = FOREACH $LAST_RELATION GENERATE FLATTEN(II_SimpleSpatialResolve(bright_2, dark_2, grey_2, brightgrey_2, blue_2, pools_2)) AS (geometry:chararray, data:map[chararray], properties:map[bytearray]);\n\n";
 										
 		/*Map<String,String> params3 = new HashMap<String, String>();
 
@@ -195,7 +197,7 @@ public class Example {
 		op3.setParameter("$INPUT_PATH", opa.getOutputPath());
 		op3.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op3_other_classes" /*+ randomGenerator.nextInt(100000)*/);
 				
-		//op3.setEnabled(false);
+		op3.setEnabled(false);
 		
 		g1.addEdge(opa, op3);
 		
@@ -273,7 +275,7 @@ public class Example {
 		op6.setParameter("$INPUT_PATH", op2.getOutputPath() + "," + op3.getOutputPath() + "," + op4.getOutputPath() + "," + op5.getOutputPath());
 		op6.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op6_all" /*+ randomGenerator.nextInt(100000)*/);
 				
-		//op6.setEnabled(false);
+		op6.setEnabled(false);
 		
 		g1.addEdge(op2, op6);
 		g1.addEdge(op3, op6);
@@ -287,7 +289,7 @@ public class Example {
 		//op5.run(null, "", false);
 		//op6.run(null, "", false);
 		
-		g1.execute();
+		//g1.execute();
 	
 		
 		/*Second project*/
@@ -296,28 +298,263 @@ public class Example {
 		gController g2 = new gController();
 		g2.setProperties(props);		
 		
-		/*operator classifies land use*/
+		/*operator that aggregates features*/
 		
 		gClusterOperator op7 = g2.addClusterOperator();
 		
-		String script7 = "DEFINE AggregationFeatures br.puc_rio.ele.lvc.interimage.geometry.udf.AggregationFeatures('max_area_pools = max(area,'Pools');sum_area_vegetation = sum(area, 'Vegetation');max_rect_building_shadow = max(rectangle_fit, 'BuildingShadow');count_building_shadow = count('BuildingShadow');sum_area_ceramic_roof = sum(area,'CeramicRoof');count_ceramic_roof = count('CeramicRoof');');\n\n"
-				+ "blocks = LOAD '$AUX_INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
+		String script7 = "DEFINE II_SelectClass br.puc_rio.ele.lvc.interimage.common.udf.SelectClass('$SEMANTICNET_FILE');\n\n" 
+				+ "DEFINE II_MergeNeighbors br.puc_rio.ele.lvc.interimage.geometry.udf.MergeNeighbors('Trees,Grass,CeramicRoof,Shadow,Blue,Bright,BrightGrey,Grey,Dark,Pools');\n\n" 
 				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
-				+ "group = COGROUP load_1 BY properties#'parent', blocks_1 BY properties#'iiuuid' PARALLEL $PARALLEL;\n\n"
-				+ "projection = FOREACH $LAST_RELATION GENERATE FLATTEN(II_AggregationFeatures(blocks_1, load_1)) AS (geometry:chararray, data:map[chararray], properties:map[bytearray]);\n\n"
-				+ "\n\n";
+				+ "group = GROUP $LAST_RELATION BY properties#'parent';\n\n"
+				+ "merged = FOREACH $LAST_RELATION GENERATE FLATTEN(II_MergeNeighbors(load_1)) AS (geometry:chararray, data:map[chararray], properties:map[bytearray]);\n\n"
+				
+				+ "wfeatures = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(II_Area(geometry),'area',properties) as properties;\n\n"
+				
+				+ "selection = FILTER wfeatures_1 BY (properties#'area' > 200.0) AND (properties#'class' == 'Shadow');\n\n"
+				+ "building_shadow = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('BuildingShadow',1.0,properties) as properties;\n\n"
+				+ "building_shadow = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
+				
+				+ "selection = FILTER wfeatures_1 BY (properties#'area' > 1900.0) AND (properties#'class' == 'Blue');\n\n"
+				+ "big_blue = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('BigBlue',1.0,properties) as properties;\n\n"
+				+ "big_blue = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
+				
+				+ "selection = FILTER wfeatures_1 BY (properties#'area' > 1900.0) AND (properties#'class' == 'Bright');\n\n"
+				+ "big_bright = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('BigBright',1.0,properties) as properties;\n\n"
+				+ "big_bright = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
+				
+				+ "selection = FILTER wfeatures_1 BY (properties#'area' > 1900.0) AND (properties#'class' == 'BrightGrey');\n\n"
+				+ "big_bright_grey = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('BigBrightGrey',1.0,properties) as properties;\n\n"
+				+ "big_bright_grey = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
+				
+				+ "selection = FILTER wfeatures_1 BY (properties#'area' > 1900.0) AND (properties#'class' == 'Grey');\n\n"
+				+ "big_grey = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('BigGrey',1.0,properties) as properties;\n\n"
+				+ "big_grey = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
+				
+				+ "selection = FILTER wfeatures_1 BY (properties#'area' > 1900.0) AND (properties#'class' == 'Dark');\n\n"
+				+ "big_dark = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('BigDark',1.0,properties) as properties;\n\n"
+				+ "big_dark = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
+				
+				+ "selection = FILTER wfeatures_1 BY (properties#'area' > 1900.0) AND ((properties#'class' == 'Blue') OR (properties#'class' == 'Bright') OR (properties#'class' == 'BrightGrey') OR (properties#'class' == 'Grey') OR (properties#'class' == 'Dark'));\n\n"
+				+ "big_roofs = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('BigRoofs',1.0,properties) as properties;\n\n"
+				+ "big_roofs = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
+				
+				+ "selection = FILTER wfeatures_1 BY (properties#'area' <= 1900.0) AND ((properties#'class' == 'Blue') OR (properties#'class' == 'Bright') OR (properties#'class' == 'BrightGrey') OR (properties#'class' == 'Grey') OR (properties#'class' == 'Dark'));\n\n"
+				+ "various_roofs = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('VariousRoofs',1.0,properties) as properties;\n\n"
+				+ "various_roofs = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
+				
+				+ "selection = FILTER merged_1 BY II_SelectClass(properties#'class','Vegetation');\n\n"
+				+ "vegetation = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps('Vegetation','class',properties) AS properties;\n\n"
+				
+				+ "selection = FILTER merged_1 BY (properties#'class' == 'CeramicRoof') OR (properties#'class' == 'Pools');\n\n"
+				+ "merged = FOREACH $LAST_RELATION GENERATE geometry, data, properties;\n\n"
+				
+				+ "union = UNION merged_2, building_shadow_2, big_blue_2, big_bright_2, big_bright_grey_2, big_grey_2, big_dark_2, big_roofs_2, various_roofs_2, vegetation_1;\n\n";
 		
-		//op6.setParser(parser);
+		//op7.setParser(parser);
 		op7.setProperties(props);
 		op7.setScript(script7);
-		op7.setParameter("$AUX_INPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/resources/shapes/blocks");
 		op7.setParameter("$STORE","true");
 		op7.setParameter("$INPUT_PATH", op6.getOutputPath());
-		op7.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op7_blocks" /*+ randomGenerator.nextInt(100000)*/);
+		op7.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op7_new_classes" /*+ randomGenerator.nextInt(100000)*/);
+				
+		//op7.setEnabled(false);
 		
-		//op7.run(null, "", false);
+		/*operator that aggregates features*/
 		
-		//g2.execute();
+		gClusterOperator op8 = g2.addClusterOperator();
+		
+		List<String> aggregation_attributes = new ArrayList<String>();
+				
+		aggregation_attributes.add("max_area_pools = max(area,Pools)");
+		aggregation_attributes.add("max_rect_building_shadow = max(rectangle_fit,BuildingShadow)");
+		aggregation_attributes.add("sum_area_vegetation = sum(area,Vegetation)");
+		aggregation_attributes.add("sum_area_ceramic_roof = sum(area,CeramicRoof)");
+		aggregation_attributes.add("count_building_shadow = count(BuildingShadow)");
+		aggregation_attributes.add("count_ceramic_roof = count(CeramicRoof)");
+		aggregation_attributes.add("sum_area_various_roofs = sum(area,VariousRoofs)");
+		aggregation_attributes.add("max_rect_big_blue = max(rectangle_fit,BigBlue)");
+		aggregation_attributes.add("max_rect_big_bright = max(rectangle_fit,BigBright)");
+		aggregation_attributes.add("max_rect_big_bright_grey = max(rectangle_fit,BigBrightGrey)");
+		aggregation_attributes.add("max_rect_big_grey = max(rectangle_fit,BigGrey)");
+		aggregation_attributes.add("max_rect_big_dark = max(rectangle_fit,BigDark)");
+		aggregation_attributes.add("count_big_roofs = count(BigRoofs)");
+		aggregation_attributes.add("mean_rect_big_roofs = mean(rectangle_fit,BigRoofs)");
+		
+		Joiner joiner = Joiner.on(";").skipNulls();
+		
+		String script8 = "DEFINE II_AggregationFeatures br.puc_rio.ele.lvc.interimage.geometry.udf.AggregationFeatures('" + joiner.join(aggregation_attributes) + "');\n\n"
+				+ "DEFINE II_CalculateTiles br.puc_rio.ele.lvc.interimage.geometry.udf.CalculateTiles('$TILES_FILE','single');\n\n"
+				+ "blocks = LOAD '$AUX_INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
+				+ "blocks = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(II_CalculateTiles(geometry), 'tile', properties) AS properties;\n\n"
+				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
+				+ "group = COGROUP $LAST_RELATION BY properties#'parent', blocks_2 BY properties#'iiuuid' PARALLEL $PARALLEL;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE FLATTEN(II_AggregationFeatures(blocks_2, load_1)) AS (geometry:chararray, data:map[chararray], properties:map[bytearray]);\n\n";
+						
+		//op8.setParser(parser);
+		op8.setProperties(props);
+		op8.setScript(script8);
+		op8.setParameter("$AUX_INPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/resources/shapes/blocks");
+		op8.setParameter("$STORE","true");
+		op8.setParameter("$INPUT_PATH", op7.getOutputPath());
+		op8.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op8_blocks" /*+ randomGenerator.nextInt(100000)*/);
+			
+		//op8.setEnabled(false);
+		
+		/*operator that classifies sport clubs*/
+		
+		String script9 = "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
+				+ "selection = FILTER $LAST_RELATION BY (properties#'max_area_pools' > 2000.0);\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('SportClubs',1.0,properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n";
+		
+		gClusterOperator op9 = g2.addClusterOperator();
+		
+		//op9.setParser(parser);
+		op9.setProperties(props);
+		op9.setScript(script9);
+		op9.setParameter("$STORE","true");
+		op9.setParameter("$INPUT_PATH", op8.getOutputPath());
+		op9.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op9_sport_clubs" /*+ randomGenerator.nextInt(100000)*/);
+		
+		//op9.setEnabled(false);
+		
+		/*operator that classifies vertical services*/
+		
+		String script10 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n" 
+				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
+				+ "selection = FILTER $LAST_RELATION BY (properties#'max_rect_building_shadow' > 0.7);\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(II_Area(geometry),'area',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(properties#'sum_area_vegetation' / properties#'area','rel_area_vegetation',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('VerticalServices',II_Membership('rel_area_veg_vs',properties#'rel_area_vegetation'),properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n";
+		
+		gClusterOperator op10 = g2.addClusterOperator();
+		
+		//op10.setParser(parser);
+		op10.setProperties(props);
+		op10.setScript(script10);
+		op10.setParameter("$STORE","true");
+		
+		op10.setParameter("$INPUT_PATH", op8.getOutputPath());
+		op10.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op10_vertical_services" /*+ randomGenerator.nextInt(100000)*/);
+		
+		//op10.setEnabled(false);
+		
+		/*operator that classifies vertical residential high standard*/
+		
+		String script11 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n" 
+				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
+				+ "selection = FILTER $LAST_RELATION BY (properties#'max_rect_building_shadow' > 0.7);\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(II_Area(geometry),'area',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(properties#'sum_area_vegetation' / properties#'area','rel_area_vegetation',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('VerticalServices',II_Membership('rel_area_veg_vrhs',properties#'rel_area_vegetation'),properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n";
+		
+		gClusterOperator op11 = g2.addClusterOperator();
+		
+		//op11.setParser(parser);
+		op11.setProperties(props);
+		op11.setScript(script11);
+		op11.setParameter("$STORE","true");
+		op11.setParameter("$INPUT_PATH", op8.getOutputPath());
+		op11.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op11_vertical_residential_high_standard" /*+ randomGenerator.nextInt(100000)*/);
+		
+		//op11.setEnabled(false);
+		
+		/*operator that classifies partially unoccupied land*/
+		
+		String script12 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n" 
+				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(II_Area(geometry),'area',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(properties#'sum_area_vegetation' / properties#'area','rel_area_vegetation',properties) as properties;\n\n"
+				
+				+ "projection = FILTER $LAST_RELATION BY (properties#'rel_area_vegetation' > 0.9);\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('PartiallyUnoccupiedLand',1.0,properties) as properties;\n\n"
+				+ "pul = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
+				
+				+ "projection = FILTER $LAST_RELATION BY (properties#'rel_area_vegetation' <= 0.9);\n\n"
+				+ "projection = FILTER $LAST_RELATION BY (properties#'sum_area_vegetation' > 120000.0);\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('PartiallyUnoccupiedLand',II_Membership('rel_area_veg_pul',properties#'rel_area_vegetation'),properties) as properties;\n\n"
+				+ "pul = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n"
+						
+				+ "group = COGROUP pul_1 BY properties#'tile', pul_2 BY properties#'tile' PARALLEL $PARALLEL;\n\n"
+
+				+ "projection = FOREACH $LAST_RELATION GENERATE FLATTEN(II_SimpleSpatialResolve(pul_1, pul_2)) AS (geometry:chararray, data:map[chararray], properties:map[bytearray]);\n\n";
+					
+		
+		gClusterOperator op12 = g2.addClusterOperator();
+		
+		//op12.setParser(parser);
+		op12.setProperties(props);
+		op12.setScript(script12);
+		op12.setParameter("$STORE","true");
+		op12.setParameter("$INPUT_PATH", op8.getOutputPath());
+		op12.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op12_partially_unoccupied_land" /*+ randomGenerator.nextInt(100000)*/);
+		
+		//op12.setEnabled(false);
+		
+		/*operator that classifies horizontal residential low standard*/
+		
+		String script13 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n" 
+				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(II_Area(geometry),'area',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(properties#'sum_area_ceramic_roof' / properties#'area','rel_area_ceramic_roof',properties) as properties;\n\n"
+				+ "projection = FILTER $LAST_RELATION BY (properties#'rel_area_ceramic_roof' > 0.3);\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(properties#'sum_area_vegetation' / properties#'area','rel_area_vegetation',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('HorizontalResidentialLowStandard',II_Membership('rel_area_veg_hrls',properties#'rel_area_vegetation'),properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n";
+		
+		gClusterOperator op13 = g2.addClusterOperator();
+		
+		//op13.setParser(parser);
+		op13.setProperties(props);
+		op13.setScript(script13);
+		op13.setParameter("$STORE","true");
+		op13.setParameter("$INPUT_PATH", op8.getOutputPath());
+		op13.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op13_horizontal_residential_low_stantard" /*+ randomGenerator.nextInt(100000)*/);
+
+		//op13.setEnabled(false);
+		
+		/*operator that classifies mixed residential services */
+		
+		String script15 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n"
+				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(II_Area(geometry),'area',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(properties#'sum_area_ceramic_roof' / properties#'area','rel_area_ceramic_roof',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(properties#'sum_area_vegetation' / properties#'area','rel_area_vegetation',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(properties#'sum_area_various_roofs' / properties#'area','rel_area_various_roofs',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('MixedResidentialServices',II_Min(II_Membership('rel_area_veg_mrs',properties#'rel_area_vegetation'), II_Mean(II_Membership('rel_area_ceramic_roof_mrs',properties#'rel_area_ceramic_roof'), II_Membership('rel_area_various_roofs_mrs',properties#'rel_area_various_roofs'))),properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n";
+		
+		gClusterOperator op15 = g2.addClusterOperator();
+		
+		//op15.setParser(parser);
+		op15.setProperties(props);
+		op15.setScript(script15);
+		op15.setParameter("$STORE","true");
+		op15.setParameter("$INPUT_PATH", op8.getOutputPath());
+		op15.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op15_mixed_residential_services" /*+ randomGenerator.nextInt(100000)*/);
+		
+		//op15.setEnabled(false);
+		
+		/*operator that resolves spatial conflicts */
+		
+		String script18 = "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
+				+ "group = GROUP $LAST_RELATION BY properties#'tile' PARALLEL $PARALLEL;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE FLATTEN(II_SimpleSpatialResolve(load_1)) AS (geometry:chararray, data:map[chararray], properties:map[bytearray]);\n\n";;
+		
+		gClusterOperator op18 = g2.addClusterOperator();
+		
+		//op18.setParser(parser);
+		op18.setProperties(props);
+		op18.setScript(script18);
+		op18.setParameter("$STORE","true");
+		op18.setParameter("$INPUT_PATH", op9.getOutputPath() + "," + op10.getOutputPath() + "," + op11.getOutputPath() + "," + op12.getOutputPath() + "," + op13.getOutputPath() + "," + op15.getOutputPath());
+		op18.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op18_all" /*+ randomGenerator.nextInt(100000)*/);
+		
+		//op18.setEnabled(false);
+		
+		g2.execute();
 		
 	}
 	
@@ -429,16 +666,15 @@ public class Example {
 		Locale locale = new Locale("en", "US");
 		Locale.setDefault(locale);
 		
-		Project project = new Project();
-		
-		project.readOldFile("C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\tessio.gap", false);
-		
+		Project project = new Project();		
+		project.readOldFile("C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\tessio.gap", false);		
+				
 	}
 	
 	public static void JSONToShapefile() {
 		
-		ShapefileConverter.JSONToShapefileF("C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\land_cover",
-		"C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\land_cover", Arrays.asList("class", "classification", "tile", "crs", "membership", "iiuuid", "parent"), true, null, null, false);
+		ShapefileConverter.JSONToShapefileF("C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\land_use\\blocks",
+		"C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\land_use\\blocks", Arrays.asList("class", "classification", "tile", "crs", "membership", "iiuuid", "parent"), true, null, null, false);
 		
 		//ShapefileConverter.WKTToShapefile("C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\part-m-00000", "C:\\Users\\Rodrigo\\Documents\\workshop\\tessio\\part-m-00000.shp", null, null);
 		
@@ -510,9 +746,9 @@ public class Example {
 		
 		//test();
 		
-		JSONToShapefile();
+		//JSONToShapefile();
 		
-		//runTessio();		
+		runTessio();		
 		
 		//runCluster();
 		

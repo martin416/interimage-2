@@ -36,7 +36,7 @@ import com.vividsolutions.jts.geom.Geometry;
 /**
  * A class that computes aggregation features for all the input polygons.<br>
  * (So far) The aggregated features cannot be spectral features.<br>
- * This class is not meant to be used globally. It should be used to merge objects within a tile or within a parent object.
+ * This class is not meant to be used globally. It should be used to aggregate features within a tile or within a parent object.
  * @author Rodrigo Ferreira
  */
 
@@ -46,7 +46,7 @@ public class AggregationFeatures extends EvalFunc<DataBag> {
 	String _features;
 	private Map<String, Map<String, Object>> _featureMap;	//attribute, operation, params
 	
-	/**Constructor that takes "to be merged" classes and feature list.*/
+	/**Constructor that takes the feature list.*/
 	public AggregationFeatures(String features) {
 		_features = features;		
 	}
@@ -71,7 +71,10 @@ public class AggregationFeatures extends EvalFunc<DataBag> {
 		
 		try {
 					
-			Iterator it = bag.iterator();        
+			Iterator it = bag.iterator();
+			
+			Map<String, Integer> mean_count = new HashMap<String, Integer>();
+			
 			while (it.hasNext()) {
 				Tuple t = (Tuple)it.next();
 				
@@ -147,11 +150,9 @@ public class AggregationFeatures extends EvalFunc<DataBag> {
 							
 						}
 						
-					} else if (operation.equals("avg")) {
+					} else if (operation.equals("mean")) {
 						
-						//TODO: implement this
-						
-						/*String attrib = paramList.get(0);
+						String attrib = paramList.get(0);
 						
 						if (paramList.get(1).equals(className)) {
 							
@@ -162,7 +163,14 @@ public class AggregationFeatures extends EvalFunc<DataBag> {
 								results.put(feature, computeFeature(attrib, geometry));
 							}
 							
-						}*/
+							if (mean_count.containsKey(feature)) {
+								int aux = mean_count.get(feature);
+								mean_count.put(feature, aux+1);
+							} else {
+								mean_count.put(feature, 1);
+							}
+							
+						}
 						
 					} else if (operation.equals("std")) {
 						//TODO: implement this
@@ -171,7 +179,15 @@ public class AggregationFeatures extends EvalFunc<DataBag> {
 				}
 				
 			}
-					
+				
+			for (Map.Entry<String, Integer> entry : mean_count.entrySet()) {
+				String feature = entry.getKey();
+				int count = entry.getValue();
+				
+				double value = results.get(feature);
+				results.put(feature, value / (double)count);				
+			}
+			
 		} catch (Exception e) {
 			e.printStackTrace();
 			System.out.println("It was not possible to compute aggregation features.");			

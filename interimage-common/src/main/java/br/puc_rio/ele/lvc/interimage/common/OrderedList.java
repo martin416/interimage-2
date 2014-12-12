@@ -73,7 +73,7 @@ public class OrderedList {
 		
 		try {
 		
-			boolean found = false;
+			/*boolean found = false;
 			
 			Tuple t = null;
 			
@@ -86,7 +86,9 @@ public class OrderedList {
 			}
 			
 			if (found)
-				result = t;
+				result = t;*/
+			
+			result = _list.remove(0);
 			
 		} catch (Exception e) {
 			System.err.println("Failed to poll element; error - " + e.getMessage());	

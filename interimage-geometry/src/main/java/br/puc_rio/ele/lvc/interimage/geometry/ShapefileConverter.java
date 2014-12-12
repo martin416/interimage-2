@@ -80,6 +80,7 @@ public class ShapefileConverter {
 	        	//ignore
 	        } else {
 	        	String name = fileEntry.getName();
+	        	
 	        	if ((name.contains(".shp")) || (name.contains(".dbf")) || (name.contains(".shx")))
 	        		fileEntry.delete();
 	        }

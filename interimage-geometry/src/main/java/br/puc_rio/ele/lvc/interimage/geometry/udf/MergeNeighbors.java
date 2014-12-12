@@ -17,6 +17,7 @@ package br.puc_rio.ele.lvc.interimage.geometry.udf;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -26,12 +27,14 @@ import org.apache.pig.data.BagFactory;
 import org.apache.pig.data.DataBag;
 import org.apache.pig.data.DataType;
 import org.apache.pig.data.Tuple;
+import org.apache.pig.data.TupleFactory;
 import org.apache.pig.impl.logicalLayer.schema.Schema;
 
 import br.puc_rio.ele.lvc.interimage.common.GeometryParser;
-import br.puc_rio.ele.lvc.interimage.common.SpatialIndex;
+import br.puc_rio.ele.lvc.interimage.common.UUID;
 
 import com.vividsolutions.jts.geom.Geometry;
+import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.io.WKTWriter;
 
 /**
@@ -51,98 +54,107 @@ public class MergeNeighbors extends EvalFunc<DataBag> {
 		_mergeNeighborClasses = Arrays.asList(mergeNeighborClasses.split(","));
 	}
 	
-	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private void mergeNeighbors(DataBag bag) {
-		
-		//DataBag output = BagFactory.getInstance().newDefaultBag();
-		
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	private void mergeNeighbors(DataBag bag, DataBag output) {
+				
 		try {
-						
+		
+			Map<String, List<Geometry>> map = new HashMap<String, List<Geometry>>();
+			
+			String crs = null;
+			Map<String,String> data = null;
+			String parent = null;
+			
 			Iterator it = bag.iterator();
 		    while (it.hasNext()) {
 		        Tuple t = (Tuple)it.next();
 		        
-		        SpatialIndex index = createIndex(bag);
+		        Geometry geometry = _geometryParser.parseGeometry(t.get(0));		        
+		        Map<String,Object> props = DataType.toMap(t.get(2));				
+				
+		        String className = DataType.toString(props.get("class"));
 		        
-		        Geometry geom1 = _geometryParser.parseGeometry(t.get(0));
-		        Map<String,Object> props1 = DataType.toMap(t.get(2));
-		        
-		        if (props1.containsKey("remove"))
-		        	continue;
-		        
-		        String className1 = (String)props1.get("class");
-		        String iiuuid1 = (String)props1.get("iiuuid");
-		        
-		        if (!_mergeNeighborClasses.contains(className1))
-		        	continue;
-		        
-		        List<Tuple> neighbors = index.query(geom1.getEnvelopeInternal());
-		        
-		        for (Tuple t2 : neighbors) {
-		        	
-		        	Geometry geom2 = _geometryParser.parseGeometry(t2.get(0));
-		        	Map<String,Object> props2 = DataType.toMap(t2.get(2));
-		        	
-		        	if (props2.containsKey("remove"))
-		        		continue;
-		        	
-		        	String className2 = (String)props2.get("class");
-		        	String iiuuid2 = (String)props2.get("iiuuid");
-		        	
-		        	if ((className2.equals(className1)) && (!iiuuid2.equals(iiuuid1))) {
-		        		
-		        		if (geom1.intersects(geom2)) {
-		        			geom1 = geom1.union(geom2);
-		        			props2.put("remove", "true");
-		        			t2.set(2, props2);
-		        		}
-		        		
-		        	}
-		        	
+		        if (crs == null) {
+		        	crs = DataType.toString(props.get("crs"));
+		        	data = (Map<String,String>)t.get(1);
+		        	parent = DataType.toString(props.get("parent"));
 		        }
 		        
-		        t.set(0, new WKTWriter().write(geom1));
+		        if (_mergeNeighborClasses.contains(className)) {
+		        
+			        if (map.containsKey(className)) {
+			        	List<Geometry> l = map.get(className);
+			        	l.add(geometry);
+			        } else {
+			        	List<Geometry> l = new ArrayList<Geometry>();
+			        	l.add(geometry);
+			        	map.put(className, l);
+			        }
+			        
+		        } else {
+		        	output.add(t);
+		        }
 		        
 		    }
 		    		    
+		    //merge
+		    
+		    GeometryFactory fact = new GeometryFactory();
+		    
+		    for (Map.Entry<String, List<Geometry>> entry : map.entrySet()) {
+	        	
+				String className = entry.getKey();
+				
+	        	List<Geometry> list2 = entry.getValue();
+	        	
+	        	Geometry[] geoms = new Geometry[list2.size()];
+	        	
+	        	int index = 0;
+	        	for (Geometry geom : list2) {
+	        		geoms[index] = geom;
+	        		index++;
+	        	}
+	        	
+	        	//Geometry union = new GeometryCollection(geoms, new GeometryFactory()).buffer(0);
+	        	Geometry union = fact.createGeometryCollection(geoms).buffer(0);
+	        	
+	        	for (int k=0; k<union.getNumGeometries(); k++) {
+	        	
+	        		Geometry aux = union.getGeometryN(k);
+	        			        		
+		        	Tuple t = TupleFactory.getInstance().newTuple(3);
+						
+	        		//byte[] bytes = new WKBWriter().write(aux);
+	        		
+	        		Map<String,Object> props = new HashMap<String,Object>();
+	        		
+	        		String id2 = new UUID(null).random();
+	        		
+	        		//TODO: how to handle parent and tile info?
+	        		
+	        		props.put("crs", crs);
+	        		props.put("class", className);
+	        		props.put("tile", "");
+	        		props.put("membership", "0.0");
+	        		props.put("iiuuid", id2);
+	        		props.put("parent", parent);
+	        		        		
+	        		t.set(0,new WKTWriter().write(aux));
+	        		t.set(1,new HashMap<String,String>(data));
+	        		t.set(2,props);
+	        		output.add(t);
+	        		
+	        	}
+	    		
+	        }
+		    
 		} catch (Exception e) {
 			e.printStackTrace();
 			System.out.println("It was not possible to merge neighboring objects.");	
 		}
-			
-		//return output;
-		
+				
 	}
-	
-	/**This method creates an STR-Tree index for the input bag and returns it.*/
-	@SuppressWarnings("rawtypes")
-	private SpatialIndex createIndex(DataBag bag) {
-		
-		SpatialIndex index = null;
-		
-		try {
-		
-			index = new SpatialIndex();
 			
-			Iterator it = bag.iterator();
-	        while (it.hasNext()) {
-	            Tuple t = (Tuple)it.next();
-            	Geometry geometry = _geometryParser.parseGeometry(t.get(0));
-            	Map<String,Object> props = DataType.toMap(t.get(2));
-            	
-            	if (props.containsKey("remove"))
-            		continue;
-            	
-				index.insert(geometry.getEnvelopeInternal(),t);
-	        }
-		} catch (Exception e) {
-			System.err.println("Failed to index bag; error - " + e.getMessage());
-			return null;
-		}
-		
-		return index;
-	}
-		
 	/**
      * Method invoked on every bag during foreach evaluation.
      * @param input tuple<br>
@@ -151,7 +163,6 @@ public class MergeNeighbors extends EvalFunc<DataBag> {
      * @exception java.io.IOException
      * @return a bag with the computed features in the properties
      */
-	@SuppressWarnings("rawtypes")
 	@Override
 	public DataBag exec(Tuple input) throws IOException {
 				
@@ -164,18 +175,7 @@ public class MergeNeighbors extends EvalFunc<DataBag> {
 			
 			DataBag output = BagFactory.getInstance().newDefaultBag();
 	        
-			mergeNeighbors(bag);
-			
-			Iterator it = bag.iterator();
-		    while (it.hasNext()) {
-		        Tuple t = (Tuple)it.next();
-		        
-		        Map<String,Object> props = DataType.toMap(t.get(2));
-		        
-		        if (!props.containsKey("remove"))
-		        	output.add(t);		        
-		        
-		    }
+			mergeNeighbors(bag, output);
 			
 	        return output;
 	        

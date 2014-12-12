@@ -311,11 +311,12 @@ public class SpatialResolve extends EvalFunc<DataBag> {
         		
         		String id2 = new UUID(null).random();
         		
-        		props.put("crs", crs);
-        		props.put("classification", map1.get(lid).get(0));
+        		//TODO: should we maintain the tile info here?
+        		
+        		props.put("crs", crs);        		
         		props.put("class", map1.get(lid).get(1));
         		props.put("tile", tileStr);
-        		props.put("membership", map1.get(lid).get(2));
+        		props.put("membership", "0.0");
         		props.put("iiuuid", id2);
         		props.put("parent", map1.get(lid).get(3));
         		        		

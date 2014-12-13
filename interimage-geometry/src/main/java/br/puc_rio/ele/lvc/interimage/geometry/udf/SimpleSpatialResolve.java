@@ -29,7 +29,8 @@ import org.apache.pig.data.Tuple;
 import org.apache.pig.impl.logicalLayer.schema.Schema;
 
 /**
- * A UDF that resolves polygons that are spatially coincident.
+ * A UDF that resolves polygons that are spatially coincident.<br>
+ * Actually, as polygons are coincident, there is no spatial resolve. The algorithm simply keeps the polygons with the highest membership value. 
  * @author Rodrigo Ferreira
  * */
 

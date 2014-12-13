@@ -16,7 +16,6 @@ package br.puc_rio.ele.lvc.interimage.geometry.udf;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -38,43 +37,35 @@ import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.io.WKTWriter;
 
 /**
- * A class that merges neighboring polygons of the same class.<br>
- * This class is not meant to be used globally. (So far) It should be only used to merge objects within a parent object.<br>
- * This class also allows users to set which classes should be merged.
- * <br><br>
+ * A class that merges spatially resolved polygons.<br>
+ * This class is not meant to be used alone. It should be used after SpatialResolve.
  * 
  * Contract:<br>
- * i) This class zeroes the 'membership' value of merged objects;
+ * i) This class zeroes the 'membership' value of resolved objects;
  * ii) This class keeps the 'parent' value;
  * iii) This class removes the 'classification' info;
  * iv) This class removes the 'tile' info. CalculateTiles should be called afterwards if the tile id is needed;
- * v) Merged objects get a new id. Non merged objects keep their id.
+ * v) Merged objects get new id's.
  * 
  * @author Rodrigo Ferreira
  */
 
-public class MergeNeighbors extends EvalFunc<DataBag> {
+public class MergeResolved extends EvalFunc<DataBag> {
 
 	private final GeometryParser _geometryParser = new GeometryParser();
 	
-	List<String> _mergeNeighborClasses;
-	
-	/**Constructor that takes "to be merged" classes.*/
-	public MergeNeighbors(String mergeNeighborClasses) {
-		_mergeNeighborClasses = Arrays.asList(mergeNeighborClasses.split(","));
-	}
-	
 	@SuppressWarnings({ "rawtypes", "unchecked" })
-	private void mergeNeighbors(DataBag bag, DataBag output) {
+	private void mergeResolved(DataBag bag, DataBag output) {
 				
 		try {
 		
 			Map<String, List<Geometry>> map = new HashMap<String, List<Geometry>>();
+			Map<String, String> classMap = new HashMap<String, String>();
 			
 			String crs = null;
 			Map<String,String> data = null;
 			String parent = null;
-			
+						
 			Iterator it = bag.iterator();
 		    while (it.hasNext()) {
 		        Tuple t = (Tuple)it.next();
@@ -82,27 +73,25 @@ public class MergeNeighbors extends EvalFunc<DataBag> {
 		        Geometry geometry = _geometryParser.parseGeometry(t.get(0));		        
 		        Map<String,Object> props = DataType.toMap(t.get(2));				
 				
+		        String iiuuid = DataType.toString(props.get("iiuuid"));
 		        String className = DataType.toString(props.get("class"));
+		        
+		        if (!classMap.containsKey(iiuuid))
+		        	classMap.put(iiuuid, className);
 		        
 		        if (crs == null) {
 		        	crs = DataType.toString(props.get("crs"));
 		        	data = (Map<String,String>)t.get(1);
-		        	parent = DataType.toString(props.get("parent"));
+		        	parent = DataType.toString(props.get("parent"));		        	
 		        }
 		        
-		        if (_mergeNeighborClasses.contains(className)) {
-		        
-			        if (map.containsKey(className)) {
-			        	List<Geometry> l = map.get(className);
-			        	l.add(geometry);
-			        } else {
-			        	List<Geometry> l = new ArrayList<Geometry>();
-			        	l.add(geometry);
-			        	map.put(className, l);
-			        }
-			        
+		        if (map.containsKey(iiuuid)) {
+		        	List<Geometry> l = map.get(iiuuid);
+		        	l.add(geometry);
 		        } else {
-		        	output.add(t);
+		        	List<Geometry> l = new ArrayList<Geometry>();
+		        	l.add(geometry);
+		        	map.put(iiuuid, l);
 		        }
 		        
 		    }
@@ -113,7 +102,7 @@ public class MergeNeighbors extends EvalFunc<DataBag> {
 		    
 		    for (Map.Entry<String, List<Geometry>> entry : map.entrySet()) {
 	        	
-				String className = entry.getKey();
+				String iiuuid = entry.getKey();
 				
 	        	List<Geometry> list2 = entry.getValue();
 	        	
@@ -143,7 +132,7 @@ public class MergeNeighbors extends EvalFunc<DataBag> {
 	        		//TODO: how to handle parent and tile info?
 	        		
 	        		props.put("crs", crs);
-	        		props.put("class", className);
+	        		props.put("class", classMap.get(iiuuid));
 	        		props.put("tile", "");
 	        		props.put("membership", "0.0");
 	        		props.put("iiuuid", id2);
@@ -185,7 +174,7 @@ public class MergeNeighbors extends EvalFunc<DataBag> {
 			
 			DataBag output = BagFactory.getInstance().newDefaultBag();
 	        
-			mergeNeighbors(bag, output);
+			mergeResolved(bag, output);
 			
 	        return output;
 	        

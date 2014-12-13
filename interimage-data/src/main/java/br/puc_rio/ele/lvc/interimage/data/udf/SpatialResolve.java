@@ -50,16 +50,19 @@ import com.vividsolutions.jts.io.WKTWriter;
 
 import br.puc_rio.ele.lvc.interimage.common.GeometryParser;
 import br.puc_rio.ele.lvc.interimage.common.OrderedList;
-import br.puc_rio.ele.lvc.interimage.common.UUID;
 import br.puc_rio.ele.lvc.interimage.data.Image;
 
 /**
  * A UDF that resolves spatial overlaps based on membership values.<br><br>
- * Example:<br>
- * 		A = load 'mydata1' as (geometry, data, properties);<br>
- * 		B = load 'mydata2' as (geometry, data, properties);<br>
- * 		C = cogroup A by properties#'tile', B by properties#'tile';<br>
- * 		D = flatten(SpatialResolve(A,B));
+ * This class does a tile-based spatial resolve. MergeResolved should be called afterwards to merge the resolved objects.
+ * 
+ * Contract:<br>
+ * i) This class zeroes the 'membership' value of resolved objects;
+ * ii) This class keeps the 'parent' value;
+ * iii) This class removes the 'classification' info;
+ * iv) This class sets the tile info with the original tile id;
+ * v) Resolved objects get the same id of original objects.
+ * 
  * @author Rodrigo Ferreira
  * 
  */
@@ -91,6 +94,8 @@ public class SpatialResolve extends EvalFunc<DataBag> {
         String tileStr = null;
         String crs = null;
         
+        Geometry tileGeom = null;
+        
         Map<Long, List<Object>> map1 = new HashMap<Long, List<Object>>();
         Map<String,String> data = null;
         
@@ -101,19 +106,18 @@ public class SpatialResolve extends EvalFunc<DataBag> {
 			Geometry geom = _geometryParser.parseGeometry(t.get(0));
 			
 			//System.out.println("Geom: " + geom);
-			
-			PreparedGeometry prep = PreparedGeometryFactory.prepare(geom);
-			
+						
 			//creates a map with the object's properties
 			
 			Map<String,Object> properties = DataType.toMap(t.get(2));
 			
 			List<Object> lp = new ArrayList<Object>();
 			
-			lp.add(properties.get("classification"));
+			//lp.add(properties.get("classification"));
 			lp.add(properties.get("class"));
-			lp.add(properties.get("membership"));
+			lp.add(properties.get("orig_tile"));
 			lp.add(properties.get("parent"));
+			lp.add(properties.get("iiuuid"));
 			
 			map1.put(id, lp);
 			
@@ -169,8 +173,14 @@ public class SpatialResolve extends EvalFunc<DataBag> {
 				
 		        img = new ArrayImgFactory<LongType>().create(new long[] {width, height}, new LongType());
 		        
+		        tileGeom = new GeometryFactory().createPolygon(new Coordinate[] { new Coordinate(tileGeoBox[0], tileGeoBox[1]), new Coordinate(tileGeoBox[2], tileGeoBox[1]), new Coordinate(tileGeoBox[2], tileGeoBox[3]), new Coordinate(tileGeoBox[0], tileGeoBox[3]), new Coordinate(tileGeoBox[0], tileGeoBox[1])});
+		        
 			}
-		
+			
+			geom = tileGeom.intersection(geom);
+			
+			PreparedGeometry prep = PreparedGeometryFactory.prepare(geom);
+			
 			int[] bBox = Image.imgBBox(new double[] {geom.getEnvelopeInternal().getMinX(), geom.getEnvelopeInternal().getMinY(), geom.getEnvelopeInternal().getMaxX(), geom.getEnvelopeInternal().getMaxY()}, tileGeoBox, new int[] {width, height});
 	        
 	        double[] geoBBox = Image.geoBBox(bBox, tileGeoBox, new int[] {width, height});
@@ -309,16 +319,16 @@ public class SpatialResolve extends EvalFunc<DataBag> {
         		
         		Map<String,Object> props = new HashMap<String,Object>();
         		
-        		String id2 = new UUID(null).random();
+        		//String id2 = new UUID(null).random();
         		
         		//TODO: should we maintain the tile info here?
         		
         		props.put("crs", crs);        		
-        		props.put("class", map1.get(lid).get(1));
-        		props.put("tile", tileStr);
+        		props.put("class", map1.get(lid).get(0));
+        		props.put("tile", map1.get(lid).get(1));
         		props.put("membership", "0.0");
-        		props.put("iiuuid", id2);
-        		props.put("parent", map1.get(lid).get(3));
+        		props.put("iiuuid", map1.get(lid).get(3));
+        		props.put("parent", map1.get(lid).get(2));
         		        		
         		t.set(0,new WKTWriter().write(aux));
         		t.set(1,new HashMap<String,String>(data));
@@ -357,14 +367,14 @@ public class SpatialResolve extends EvalFunc<DataBag> {
 				Iterator it = bag.iterator();
 			    while (it.hasNext()) {
 			        Tuple t = (Tuple)it.next();
-			        Map<String,Object> props = DataType.toMap(t.get(2));					
+			        //Map<String,Object> props = DataType.toMap(t.get(2));					
 					//String iiuuid = DataType.toString(props.get("iiuuid"));
 			        
 			        //Redefining iiuuid because some may be repeated
 			        
-			        String id = new UUID(null).random();
+			        /*String id = new UUID(null).random();
 	        		props.put("iiuuid", id);
-	        		t.set(2,props);
+	        		t.set(2,props);*/
 	        		
 			        list.add(t);
 			    }

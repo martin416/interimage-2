@@ -23,7 +23,6 @@ import java.util.Map;
 import org.apache.pig.EvalFunc;
 import org.apache.pig.data.BagFactory;
 import org.apache.pig.data.DataBag;
-import org.apache.pig.data.DataByteArray;
 import org.apache.pig.data.DataType;
 import org.apache.pig.data.Tuple;
 import org.apache.pig.data.TupleFactory;
@@ -32,7 +31,7 @@ import org.apache.pig.impl.logicalLayer.schema.Schema;
 import br.puc_rio.ele.lvc.interimage.common.GeometryParser;
 
 import com.vividsolutions.jts.geom.Geometry;
-import com.vividsolutions.jts.io.WKBWriter;
+import com.vividsolutions.jts.io.WKTWriter;
 
 /**
  * A UDF that replicates boundary polygons.<br><br>
@@ -85,11 +84,12 @@ public class Replicate extends EvalFunc<DataBag> {
 						
 			for (int i=0; i<list.length; i++) {
 								
-				byte[] bytes = new WKBWriter().write(geometry);
+				//byte[] bytes = new WKBWriter().write(geometry);
     			
 				Map<String,Object> props = new HashMap<String,Object>(properties);
 				
 				props.put("tile", list[i]);
+				props.put("orig_tile", "T" + min);
 				
 				long tile = Long.parseLong(list[i].substring(1));
 				
@@ -99,7 +99,7 @@ public class Replicate extends EvalFunc<DataBag> {
 				}
 				
     			Tuple t = TupleFactory.getInstance().newTuple(3);
-    			t.set(0,new DataByteArray(bytes));
+    			t.set(0,new WKTWriter().write(geometry));
     			t.set(1,new HashMap<String,String>(data));
     			t.set(2,props);
     			bag.add(t);
@@ -119,7 +119,7 @@ public class Replicate extends EvalFunc<DataBag> {
 		try {
 
 			List<Schema.FieldSchema> list = new ArrayList<Schema.FieldSchema>();
-			list.add(new Schema.FieldSchema(null, DataType.BYTEARRAY));
+			list.add(new Schema.FieldSchema(null, DataType.CHARARRAY));
 			list.add(new Schema.FieldSchema(null, DataType.MAP));
 			list.add(new Schema.FieldSchema(null, DataType.MAP));
 			

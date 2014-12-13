@@ -25,8 +25,8 @@ import net.imglib2.RandomAccess;
 import net.imglib2.img.Img;
 import net.imglib2.img.array.ArrayImgFactory;
 import net.imglib2.ops.operation.iterable.unary.Max;
-import net.imglib2.ops.operation.iterable.unary.Mean;
 import net.imglib2.ops.operation.iterable.unary.Min;
+import net.imglib2.ops.operation.iterable.unary.Sum;
 import net.imglib2.roi.BinaryMaskRegionOfInterest;
 import net.imglib2.type.logic.BitType;
 import net.imglib2.type.numeric.real.DoubleType;
@@ -48,9 +48,9 @@ public class FeatureCalculator {
 	//private final DataParser imageParser = new DataParser();
 	
 	@SuppressWarnings("unchecked")
-	public Map<String, Double> computeFeatures(Map<String, Map<String, Map<String, Object>>> imageMap, Map<String, Map<String, Object>> featureMap, Geometry geometry) {
+	public Map<String, Map<String, Object>> computeFeatures(Map<String, Map<String, Map<String, Object>>> imageMap, Map<String, Map<String, Object>> featureMap, Geometry geometry) {
 		
-		Map<String, Double> result = new HashMap<String, Double>();
+		Map<String, Map<String, Object>> result = new HashMap<String, Map<String, Object>>();
 		
 		Map<String, Map<String, Map<Integer, Object>>> tileMap = new HashMap<String, Map<String, Map<Integer, Object>>>();
 				
@@ -62,6 +62,8 @@ public class FeatureCalculator {
 		for (Map.Entry<String, Map<String, Object>> entry : featureMap.entrySet()) {
 			
 			String attribute = entry.getKey();
+			
+			Map<String, Object> params = new HashMap<String, Object>();
 			
 			//System.out.println(attribute);
 			
@@ -140,7 +142,8 @@ public class FeatureCalculator {
 							//System.out.println("intersects");
 							
 							/*Gets the part of the polygon inside the tile*/
-							Geometry geom = tileGeom.intersection(geometry);
+							//Geometry geom = tileGeom.intersection(geometry);
+							Geometry geom = geometry;
 							
 							int[] bBox = Image.imgBBox(new double[] {geom.getEnvelopeInternal().getMinX(), geom.getEnvelopeInternal().getMinY(), geom.getEnvelopeInternal().getMaxX(), geom.getEnvelopeInternal().getMaxY()}, tileGeoBox, new int[] {buff.getWidth(), buff.getHeight()});
 							
@@ -317,64 +320,77 @@ public class FeatureCalculator {
 			
 			//long startTime = System.nanoTime();
 			
+			params.put("name", operation);
+			
 			if (operation.equals("mean")) {
 				String[] tokens = paramList.get(0).split("_");
-				int band = Integer.parseInt(tokens[1].replace("layer",""))-1;
-				result.put(attribute, meanValue(tileMap.get(tokens[0]), band));
+				int band = Integer.parseInt(tokens[1].replace("layer",""))-1;				
+				meanValue(tileMap.get(tokens[0]), band, params);
+				//result.put(attribute, meanValue(tileMap.get(tokens[0]), band));
 			} else if (operation.equals("maxPixelValue")) {
 				String[] tokens = paramList.get(0).split("_");
-				int band = Integer.parseInt(tokens[1].replace("layer",""))-1;
-				result.put(attribute, maxPixelValue(tileMap.get(tokens[0]), band));
+				int band = Integer.parseInt(tokens[1].replace("layer",""))-1;				
+				maxPixelValue(tileMap.get(tokens[0]), band, params);
+				//result.put(attribute, maxPixelValue(tileMap.get(tokens[0]), band));
 			} else if (operation.equals("minPixelValue")) {
 				String[] tokens = paramList.get(0).split("_");
 				int band = Integer.parseInt(tokens[1].replace("layer",""))-1;
-				result.put(attribute, minPixelValue(tileMap.get(tokens[0]), band));
+				minPixelValue(tileMap.get(tokens[0]), band, params);
+				//result.put(attribute, minPixelValue(tileMap.get(tokens[0]), band));
 			} else if (operation.equals("ratio")) {
 				String[] tokens = paramList.get(0).split("_");
 				int band = Integer.parseInt(tokens[1].replace("layer",""))-1;
-				result.put(attribute, ratioValue(tileMap.get(tokens[0]), band, bandsMap.get(tokens[0])));
+				ratioValue(tileMap.get(tokens[0]), band, bandsMap.get(tokens[0]), params);
+				//result.put(attribute, ratioValue(tileMap.get(tokens[0]), band, bandsMap.get(tokens[0])));
 			} else if (operation.equals("brightness")) {
 				String token = paramList.get(0).trim();
-				result.put(attribute, brightnessValue(tileMap.get(token),bandsMap.get(token)));
+				brightnessValue(tileMap.get(token),bandsMap.get(token), params);
+				//result.put(attribute, brightnessValue(tileMap.get(token),bandsMap.get(token)));
 			} else if (operation.equals("bandMeanAdd")) {
 				String[] tokens1 = paramList.get(0).split("_");
 				//TODO: consider different images
 				int band1 = Integer.parseInt(tokens1[1].replace("layer",""))-1;
 				String[] tokens2 = paramList.get(1).split("_");
 				int band2 = Integer.parseInt(tokens2[1].replace("layer",""))-1;				
-				result.put(attribute, bandArithmetic(tileMap.get(tokens1[0]), new int[] {band1, band2}, "Add"));
+				bandArithmetic(tileMap.get(tokens1[0]), new int[] {band1, band2}, "Add", params);
+				//result.put(attribute, bandArithmetic(tileMap.get(tokens1[0]), new int[] {band1, band2}, "Add"));
 			} else if (operation.equals("bandMeanDiv")) {
 				String[] tokens1 = paramList.get(0).split("_");
 				//TODO: consider different images
 				int band1 = Integer.parseInt(tokens1[1].replace("layer",""))-1;
 				String[] tokens2 = paramList.get(1).split("_");
 				int band2 = Integer.parseInt(tokens2[1].replace("layer",""))-1;				
-				result.put(attribute, bandArithmetic(tileMap.get(tokens1[0]), new int[] {band1, band2}, "Div"));
+				bandArithmetic(tileMap.get(tokens1[0]), new int[] {band1, band2}, "Div", params);
+				//result.put(attribute, bandArithmetic(tileMap.get(tokens1[0]), new int[] {band1, band2}, "Div"));
 			} else if (operation.equals("bandMeanMul")) {
 				String[] tokens1 = paramList.get(0).split("_");
 				//TODO: consider different images
 				int band1 = Integer.parseInt(tokens1[1].replace("layer",""))-1;
 				String[] tokens2 = paramList.get(1).split("_");
 				int band2 = Integer.parseInt(tokens2[1].replace("layer",""))-1;				
-				result.put(attribute, bandArithmetic(tileMap.get(tokens1[0]), new int[] {band1, band2}, "Mul"));
+				bandArithmetic(tileMap.get(tokens1[0]), new int[] {band1, band2}, "Mul", params);
+				//result.put(attribute, bandArithmetic(tileMap.get(tokens1[0]), new int[] {band1, band2}, "Mul"));
 			} else if (operation.equals("bandMeanSub")) {
 				String[] tokens1 = paramList.get(0).split("_");
 				//TODO: consider different images
 				int band1 = Integer.parseInt(tokens1[1].replace("layer",""))-1;
 				String[] tokens2 = paramList.get(1).split("_");
 				int band2 = Integer.parseInt(tokens2[1].replace("layer",""))-1;				
-				result.put(attribute, bandArithmetic(tileMap.get(tokens1[0]), new int[] {band1, band2}, "Sub"));
+				bandArithmetic(tileMap.get(tokens1[0]), new int[] {band1, band2}, "Sub", params);
+				//result.put(attribute, bandArithmetic(tileMap.get(tokens1[0]), new int[] {band1, band2}, "Sub"));
 			} else if (operation.equals("amplitudeValue")) {
 				String[] tokens = paramList.get(0).split("_");
 				int band = Integer.parseInt(tokens[1].replace("layer",""))-1;
-				result.put(attribute, amplitudeValue(tileMap.get(tokens[0]), band));
+				amplitudeValue(tileMap.get(tokens[0]), band, params);
+				//result.put(attribute, amplitudeValue(tileMap.get(tokens[0]), band));
+			} else if (operation.equals("standardDeviation")) {
+				String[] tokens = paramList.get(0).split("_");
+				int band = Integer.parseInt(tokens[1].replace("layer",""))-1;
+				standardDeviation(tileMap.get(tokens[0]), band, params);
+				//result.put(attribute, standardDeviation(tileMap.get(tokens[0]), band));
 			}
-			
-			//long endTime = System.nanoTime();
-			
-			//System.out.println("computing in nanoseconds: " + (endTime-startTime));
-			
-			//}
+						
+			result.put(attribute, params);
 			
 		}
 		
@@ -382,7 +398,7 @@ public class FeatureCalculator {
 	}
 	
 	@SuppressWarnings("unchecked")
-	private double meanValue(Object obj, int band) {
+	private void meanValue(Object obj, int band, Map<String, Object> params) {
 		
 		if (obj instanceof Map) {
 			
@@ -390,11 +406,53 @@ public class FeatureCalculator {
 			
 			if (tiles.size()==0) {
 				//System.out.println("Tiles empty");
-				return Double.NaN;				
+				return;				
 			}
 			
 			double sum = 0.0;
 			int count = 0;
+			
+			for (Map.Entry<String, Map<Integer, Object>> entry : tiles.entrySet()) {
+								
+				Map<Integer, Object> map = entry.getValue();
+				
+				Cursor <DoubleType> cursor = (Cursor <DoubleType>) map.get(band);
+				
+				cursor.reset();
+				
+				int c = (Integer)map.get(1000);	//code where we can find the area
+				count = count + c;
+				
+				Sum< DoubleType, DoubleType >  res = new Sum< DoubleType, DoubleType >();
+				
+				double partial = res.compute(cursor, new DoubleType()).get();
+
+				sum = sum + partial;
+							
+			}
+				
+			params.put("sum", sum);
+			params.put("count", count);
+			
+		}
+		
+	}
+	
+	@SuppressWarnings("unchecked")
+	private void standardDeviation(Object obj, int band, Map<String, Object> params) {
+		
+		if (obj instanceof Map) {
+			
+			Map<String, Map<Integer, Object>> tiles = (Map<String, Map<Integer, Object>>)obj;
+			
+			if (tiles.size()==0) {
+				//System.out.println("Tiles empty");
+				return;				
+			}
+			
+			double squaredPixels = 0.0;
+			double colorSum = 0.0;
+			int area = 0;
 			
 			for (Map.Entry<String, Map<Integer, Object>> entry : tiles.entrySet()) {
 				
@@ -409,52 +467,35 @@ public class FeatureCalculator {
 				cursor.reset();
 				
 				int c = (Integer)map.get(1000);	//code where we can find the area
-				count = count + c;
+				//area = area + c;
 				
-				Mean< DoubleType, DoubleType >  res = new Mean< DoubleType, DoubleType >();
-				
-				double partial = res.compute(cursor, new DoubleType()).get() * c;
-
-				sum = sum + partial;
-				
-				//System.out.println("partial: " + partial/c);
-				
-				/*FloatProcessor ip = (FloatProcessor)map.get("imageProcessor");
-			
-				int total = ip.getHeight()*ip.getWidth();
-				
-				int index = 0;
-				
-				while (index<total) {
-					if (ip.)
-					float value = ip.getf(index);
-					if (Float.isNaN(mean)) {
-						mean = value;
-					} else {
-						mean = (mean + value)/2;
-					}
-				}*/
-				
-				//compute mean
-				
+				double sp = 0.0;
+				double cs = 0.0;
+								
+				while (cursor.hasNext()) {
+					DoubleType value = cursor.next();
+					double v = value.get();
+					
+					sp = sp + (v*v);
+					cs = cs + v;					
+				}
+								
+				squaredPixels = squaredPixels + sp;
+				colorSum = colorSum + cs;
+				area = area + c;
+								
 			}
 			
-			//System.out.println("final: " + mean/count);
-			
-			return sum/count;
+			params.put("sum", colorSum);
+			params.put("squared", squaredPixels);
+			params.put("count", area);
 						
-		} else {
-			
-			//System.out.println("other type");
-			
-			//Treating other types
-			return Double.NaN;
 		}
 		
 	}
 	
 	@SuppressWarnings("unchecked")
-	private double maxPixelValue(Object obj, int band) {
+	private void maxPixelValue(Object obj, int band, Map<String, Object> params) {
 		
 		if (obj instanceof Map) {
 			
@@ -462,7 +503,7 @@ public class FeatureCalculator {
 			
 			if (tiles.size()==0) {
 				//System.out.println("Tiles empty");
-				return Double.NaN;				
+				return;				
 			}
 			
 			double max = -Double.MAX_VALUE;			
@@ -484,27 +525,17 @@ public class FeatureCalculator {
 				double partial = res.compute(cursor, new DoubleType()).get();
 
 				max = Math.max(max, partial);				
-				
-				//System.out.println("partial: " + partial);
 								
 			}
 			
-			//System.out.println("final: " + max);
-			
-			return max;
+			params.put("max", max);
 						
-		} else {
-			
-			//System.out.println("other type");
-			
-			//Treating other types
-			return Double.NaN;
 		}
 		
 	}
 	
 	@SuppressWarnings("unchecked")
-	private double minPixelValue(Object obj, int band) {
+	private void minPixelValue(Object obj, int band, Map<String, Object> params) {
 		
 		if (obj instanceof Map) {
 			
@@ -512,7 +543,7 @@ public class FeatureCalculator {
 			
 			if (tiles.size()==0) {
 				//System.out.println("Tiles empty");
-				return Double.NaN;				
+				return;				
 			}
 			
 			double min = Double.MAX_VALUE;			
@@ -534,27 +565,17 @@ public class FeatureCalculator {
 				double partial = res.compute(cursor, new DoubleType()).get();
 
 				min = Math.min(min, partial);
-																
-				//System.out.println("partial: " + partial);
-				
+								
 			}
 			
-			//System.out.println("final: " + min);
-			
-			return min;
+			params.put("min", min);
 						
-		} else {
-			
-			//System.out.println("other type");
-			
-			//Treating other types
-			return Double.NaN;
 		}
 		
 	}
 	
 	@SuppressWarnings("unchecked")
-	private double ratioValue(Object obj, int band, int bands) {
+	private void ratioValue(Object obj, int band, int bands, Map<String, Object> params) {
 		
 		if (obj instanceof Map) {
 			
@@ -562,16 +583,16 @@ public class FeatureCalculator {
 			
 			if (tiles.size()==0) {
 				//System.out.println("Tiles empty");
-				return Double.NaN;				
+				return;				
 			}
 			
-			Double[] mean = new Double[bands];
+			Double[] sum = new Double[bands];
 			int count = 0;
-			
+					
 			for (int b=0; b<bands; b++) {
-				mean[b] = Double.NaN;
+				sum[b] = 0.0;
 			}
-						
+			
 			for (Map.Entry<String, Map<Integer, Object>> entry : tiles.entrySet()) {
 				
 				//String tile = entry.getKey();
@@ -589,15 +610,11 @@ public class FeatureCalculator {
 						
 					cursor.reset();
 					
-					Mean< DoubleType, DoubleType >  res = new Mean< DoubleType, DoubleType >();
+					Sum< DoubleType, DoubleType >  res = new Sum< DoubleType, DoubleType >();
 					
-					double partial = res.compute(cursor, new DoubleType()).get() * c;
+					double partial = res.compute(cursor, new DoubleType()).get();
 
-					if (Double.isNaN(mean[b])) {
-						mean[b] = partial;
-					} else {
-						mean[b] = (mean[b] + partial);
-					}
+					sum[b] = sum[b] + partial;
 												
 					//System.out.println("partial: " + partial/c + " - " + b);
 			
@@ -605,27 +622,20 @@ public class FeatureCalculator {
 					
 			}
 			
-			double sum = 0;
-			
-			for (int b=0; b<bands; b++) {
-				mean[b] = mean[b] / count;
-				sum = sum + mean[b];
+			for (int i=0; i<bands; i++) {
+				params.put("band_" + i, sum[i]);
 			}
 			
-			return mean[band]/sum;
+			params.put("band", band);
+			params.put("bands", bands);
+			params.put("count", count);
 						
-		} else {
-			
-			//System.out.println("other type");
-			
-			//Treating other types
-			return Double.NaN;
 		}
 		
 	}
 	
 	@SuppressWarnings("unchecked")
-	private double brightnessValue(Object obj, int bands) {
+	private void brightnessValue(Object obj, int bands, Map<String, Object> params) {
 		
 		if (obj instanceof Map) {
 			
@@ -633,14 +643,14 @@ public class FeatureCalculator {
 			
 			if (tiles.size()==0) {
 				//System.out.println("Tiles empty");
-				return Double.NaN;				
+				return;				
 			}
 			
-			Double[] mean = new Double[bands];
+			Double[] sum = new Double[bands];
 			int count = 0;
 			
 			for (int b=0; b<bands; b++) {
-				mean[b] = Double.NaN;
+				sum[b] = 0.0;
 			}
 						
 			for (Map.Entry<String, Map<Integer, Object>> entry : tiles.entrySet()) {
@@ -660,15 +670,11 @@ public class FeatureCalculator {
 									
 					cursor.reset();
 					
-					Mean< DoubleType, DoubleType >  res = new Mean< DoubleType, DoubleType >();
+					Sum< DoubleType, DoubleType >  res = new Sum< DoubleType, DoubleType >();
 					
-					double partial = res.compute(cursor, new DoubleType()).get() * c;
+					double partial = res.compute(cursor, new DoubleType()).get();
 
-					if (Double.isNaN(mean[b])) {
-						mean[b] = partial;
-					} else {
-						mean[b] = (mean[b] + partial);
-					}
+					sum[b] = sum[b] + partial;
 												
 					//System.out.println("partial: " + partial/c + " - " + b);
 			
@@ -676,29 +682,19 @@ public class FeatureCalculator {
 					
 			}
 			
-			////System.out.println("final: " + min);
-			
-			double sum = 0;
-			
-			for (int b=0; b<bands; b++) {
-				mean[b] = mean[b] / count;
-				sum = sum + mean[b];
+			for (int i=0; i<bands; i++) {
+				params.put("band_" + i, sum[i]);
 			}
-			
-			return sum/bands;
+
+			params.put("bands", bands);
+			params.put("count", count);
 						
-		} else {
-			
-			//System.out.println("other type");
-			
-			//Treating other types
-			return Double.NaN;
 		}
 		
 	}
 	
 	@SuppressWarnings("unchecked")
-	private double bandArithmetic(Object obj, int[] bands, String operation) {
+	private void bandArithmetic(Object obj, int[] bands, String operation, Map<String, Object> params) {
 		
 		if (obj instanceof Map) {
 			
@@ -706,14 +702,14 @@ public class FeatureCalculator {
 			
 			if (tiles.size()==0) {
 				//System.out.println("Tiles empty");
-				return Double.NaN;				
+				return;				
 			}
 			
-			Double[] mean = new Double[2];
+			Double[] sum = new Double[2];
 			int count = 0;
 			
 			for (int b=0; b<2; b++) {
-				mean[b] = Double.NaN;
+				sum[b] = 0.0;
 			}
 						
 			for (Map.Entry<String, Map<Integer, Object>> entry : tiles.entrySet()) {
@@ -733,51 +729,26 @@ public class FeatureCalculator {
 							
 					cursor.reset();
 					
-					Mean< DoubleType, DoubleType >  res = new Mean< DoubleType, DoubleType >();
+					Sum< DoubleType, DoubleType >  res = new Sum< DoubleType, DoubleType >();
 					
-					double partial = res.compute(cursor, new DoubleType()).get() * c;
+					double partial = res.compute(cursor, new DoubleType()).get();
 
-					if (Double.isNaN(mean[b])) {
-						mean[b] = partial;
-					} else {
-						mean[b] = (mean[b] + partial);
-					}
-												
-					//System.out.println("partial: " + partial/c + " - " + b);
+					sum[b] = sum[b] + partial;
 			
 				}
 					
 			}
-			
-			////System.out.println("final: " + min);
-			
-			for (int b=0; b<2; b++) {
-				mean[b] = mean[b] / count;				
-			}
-			
-			if (operation.equals("Div"))
-				return mean[0]/mean[1];
-			else if (operation.equals("Add"))
-				return mean[0]+mean[1];
-			else if (operation.equals("Mul"))
-				return mean[0]*mean[1];
-			else if (operation.equals("Sub"))
-				return mean[0]-mean[1];
-			else
-				return Double.NaN;
 						
-		} else {
-			
-			//System.out.println("other type");
-			
-			//Treating other types
-			return Double.NaN;
+			params.put("band_a", sum[0]);
+			params.put("band_b", sum[1]);
+			params.put("count", count);
+						
 		}
 		
 	}
 	
 	@SuppressWarnings("unchecked")
-	private double amplitudeValue(Object obj, int band) {
+	private void amplitudeValue(Object obj, int band, Map<String, Object> params) {
 		
 		if (obj instanceof Map) {
 			
@@ -785,7 +756,7 @@ public class FeatureCalculator {
 			
 			if (tiles.size()==0) {
 				//System.out.println("Tiles empty");
-				return Double.NaN;				
+				return;				
 			}
 			
 			double min = Double.MAX_VALUE;
@@ -814,23 +785,12 @@ public class FeatureCalculator {
 
 				min = Math.min(min, partialMin);
 				max = Math.max(max, partialMax);
-												
-				//System.out.println("partial: " + partialMin);
-				//System.out.println("partial: " + partialMax);
 				
 			}
 			
-			//System.out.println("final: " + min);
-			//System.out.println("final: " + max);
+			params.put("max", max);
+			params.put("min", min);
 			
-			return max-min;
-						
-		} else {
-			
-			//System.out.println("other type");
-			
-			//Treating other types
-			return Double.NaN;
 		}
 		
 	}

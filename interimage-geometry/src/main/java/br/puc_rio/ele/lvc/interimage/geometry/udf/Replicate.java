@@ -74,27 +74,26 @@ public class Replicate extends EvalFunc<DataBag> {
 			
 			String[] list = tileStr.split(",");
 			
-			/*Compute the lowest ID*/
-			long min = Long.MAX_VALUE;
+			/*Get the lowest tile code*/
+			String min = null;
 			for (int i=0; i<list.length; i++) {
-				long id = Long.parseLong(list[i].substring(1));
-				if (id < min)
-					min = id;
+				if (min == null) {
+					min = list[i];
+				} else {
+					if (list[i].compareTo(min) < 0)
+						min = list[i];
+				}
 			}
 						
 			for (int i=0; i<list.length; i++) {
-								
-				//byte[] bytes = new WKBWriter().write(geometry);
-    			
+				    			
 				Map<String,Object> props = new HashMap<String,Object>(properties);
 				
 				props.put("tile", list[i]);
-				props.put("orig_tile", "T" + min);
-				
-				long tile = Long.parseLong(list[i].substring(1));
-				
+				props.put("orig_tile", min);
+								
 				/*Only the minimum tile instance should remain*/
-				if (tile != min) {
+				if (!list[i].equals(min)) {
 					props.put("iirep","true");
 				}
 				

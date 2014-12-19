@@ -70,10 +70,25 @@ public class AggregationFeatures extends EvalFunc<DataBag> {
 		Map<String, Double> results = new HashMap<String, Double>();
 		
 		try {
-					
-			Iterator it = bag.iterator();
-			
+						
 			Map<String, Integer> mean_count = new HashMap<String, Integer>();
+			
+			//initialize
+			
+			for (Map.Entry<String, Map<String, Object>> entry : _featureMap.entrySet()) {
+				
+				String feature = entry.getKey();
+				String operation = (String)entry.getValue().get("operation");				
+								
+				if (operation.equals("sum")) {
+					results.put(feature, 0.0);
+				} else if (operation.equals("count")) {
+					results.put(feature, 0.0);
+				}
+				
+			}
+			
+			Iterator it = bag.iterator();
 			
 			while (it.hasNext()) {
 				Tuple t = (Tuple)it.next();
@@ -91,7 +106,7 @@ public class AggregationFeatures extends EvalFunc<DataBag> {
 					String feature = entry.getKey();
 					String operation = (String)entry.getValue().get("operation");
 					List<String> paramList = (List<String>)entry.getValue().get("params");
-					
+															
 					if (operation.equals("max")) {
 						
 						String attrib = paramList.get(0);
@@ -271,7 +286,7 @@ public class AggregationFeatures extends EvalFunc<DataBag> {
 			}
 			
 			Map<String, Double> features = null;
-							
+					
 			features = computeFeatures(bag2);
 			
 			for (Map.Entry<String, Double> entry : features.entrySet()) {

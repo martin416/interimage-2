@@ -72,12 +72,14 @@ public class SpatialClip extends EvalFunc<DataBag> {
 	private String _gridUrl = null;
 	
 	private double _minArea;
+	private double _resolution;
 	
 	/**Constructor that takes the ROIs and the tiles grid URLs.*/
-	public SpatialClip(String roiUrl, String gridUrl, String minArea) {
+	public SpatialClip(String roiUrl, String gridUrl, String minArea, String resolution) {
 		_roiUrl = roiUrl;
 		_gridUrl = gridUrl;
 		_minArea = Double.parseDouble(minArea);
+		_resolution = Double.parseDouble(resolution);
 	}
 	
 	/**
@@ -247,6 +249,10 @@ public class SpatialClip extends EvalFunc<DataBag> {
 		        				
 		        				if (aux_geom.getArea() < _minArea)
 		        					continue;
+		        				
+		        				if ((aux_geom.getEnvelopeInternal().getHeight() <= (_resolution/2)) ||
+		        						(aux_geom.getEnvelopeInternal().getWidth() <= (_resolution/2)))
+		        							continue;
 		        				
 			        			Tuple t = TupleFactory.getInstance().newTuple(3);
 			        			t.set(0,new WKTWriter().write(aux_geom));

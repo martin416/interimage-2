@@ -142,8 +142,8 @@ public class FeatureCalculator {
 							//System.out.println("intersects");
 							
 							/*Gets the part of the polygon inside the tile*/
-							//Geometry geom = tileGeom.intersection(geometry);
-							Geometry geom = geometry;
+							Geometry geom = tileGeom.intersection(geometry);
+							//Geometry geom = geometry;
 							
 							int[] bBox = Image.imgBBox(new double[] {geom.getEnvelopeInternal().getMinX(), geom.getEnvelopeInternal().getMinY(), geom.getEnvelopeInternal().getMaxX(), geom.getEnvelopeInternal().getMaxY()}, tileGeoBox, new int[] {buff.getWidth(), buff.getHeight()});
 							

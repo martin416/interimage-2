@@ -14,7 +14,7 @@ limitations under the License.*/
 
 package br.puc_rio.ele.lvc.interimage.core.project;
 
-import br.puc_rio.ele.lvc.interimage.common.FixedGridTileManager;
+import br.puc_rio.ele.lvc.interimage.common.SFCTileManager;
 import br.puc_rio.ele.lvc.interimage.common.SemanticNetwork;
 import br.puc_rio.ele.lvc.interimage.common.TileManager;
 import br.puc_rio.ele.lvc.interimage.common.URL;
@@ -271,7 +271,7 @@ public class Project {
 			    				    	
 			    	//System.out.println(_properties.getProperty("interimage.tileSize"));
 			    	
-			    	_tileManager = new FixedGridTileManager(_tilePixelSize * _minResolution, crs);
+			    	_tileManager = new SFCTileManager(_tilePixelSize * _minResolution, crs);
 			    	
 			    	_dataManager.updateGeoBBox(new double[] {_imageList.getGeoWest(), _imageList.getGeoSouth(), _imageList.getGeoEast(), _imageList.getGeoNorth()}); 
 			    				    	

@@ -597,6 +597,8 @@ public class CombineSpectralFeatures extends EvalFunc<DataBag> {
 		    				    	
 		    	}
 		    	
+		    	props.remove("spectral_features");
+		    	
 		    	t.set(2, props);
 		    	output.add(t);		    	
 		    			    	

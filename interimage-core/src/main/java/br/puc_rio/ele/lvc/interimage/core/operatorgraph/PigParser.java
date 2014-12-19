@@ -56,7 +56,8 @@ public class PigParser {
 	private String _sourceSpecificURL;
 	private String _projectName;
 	private String _crs;
-	private String _tileSizeMeters;	
+	private String _tileSizeMeters;
+	private String _minResolution;
 	
 	public void setup(Properties properties) {
 		
@@ -69,6 +70,7 @@ public class PigParser {
 		_clusterSize = Integer.parseInt(properties.getProperty("interimage.clusterSize"));
 		_crs = properties.getProperty("interimage.crs");
 		_tileSizeMeters = properties.getProperty("interimage.tileSizeMeters");
+		_minResolution = properties.getProperty("interimage.minResolution");
 		_params = new HashMap<String,String>();
 				
 		//Random randomGenerator = new Random();
@@ -84,6 +86,7 @@ public class PigParser {
 		//_params.put("$DUMP_PATH", _sourceSpecificURL + "interimage/" + _projectName + "/dump/" + randomGenerator.nextInt(100000));
 		//_params.put("$RESULTS_PATH", sourceSpecificURL + "interimage/" + projectName + "/results/" + randomGenerator.nextInt(100000));
 		_params.put("$TILE_SIZE_METERS", _tileSizeMeters);
+		_params.put("$MIN_RESOLUTION", _minResolution);
 		_params.put("$PARALLEL", String.valueOf(_parallel));
 		_params.put("$CRS", _crs);
 		

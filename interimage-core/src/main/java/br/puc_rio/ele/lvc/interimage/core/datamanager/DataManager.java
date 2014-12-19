@@ -154,7 +154,7 @@ public class DataManager {
 					    //btw.close();
 					    bw.close();
 					    
-					    ShapefileConverter.WKTToShapefile(projectPath + "tiles.wkt", projectPath + "tiles.shp", null, null);
+					    ShapefileConverter.JSONToShapefileF(projectPath + "tiles", projectPath + "tiles-shapes", null, false, "", "", false);
 					    
 					}
 					    

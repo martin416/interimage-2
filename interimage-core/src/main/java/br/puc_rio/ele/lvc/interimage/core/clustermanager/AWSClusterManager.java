@@ -87,6 +87,7 @@ public class AWSClusterManager implements ClusterManager {
 		source_ = new AWSSource(properties_.getProperty("interimage.aws.accessKey"),properties_.getProperty("interimage.aws.secretKey"),properties_.getProperty("interimage.aws.S3Bucket"), true);
 		
 		String debugging = properties_.getProperty("interimage.aws.debugging");
+		String logging = properties_.getProperty("interimage.aws.logging");
 		String instanceType = properties_.getProperty("interimage.aws.instanceType");
 		String market = properties_.getProperty("interimage.aws.market");
 		String bidPrice = properties_.getProperty("interimage.aws.bidPrice");
@@ -181,10 +182,12 @@ public class AWSClusterManager implements ClusterManager {
 		RunJobFlowRequest request = new RunJobFlowRequest()
 	    .withName("Pig Interactive")
 	    //.withAmiVersion("3.1.0")
-	    .withLogUri("s3://" + properties_.getProperty("interimage.aws.S3Bucket") + "/interimage/" + properties_.getProperty("interimage.projectName"))	    	
 	    //.withVisibleToAllUsers(true)
 	    .withInstances(instances)
 	    .withBootstrapActions(bootstrapList);
+		
+		if (logging.equals("true"))
+			request.setLogUri("s3://" + properties_.getProperty("interimage.aws.S3Bucket") + "/interimage/" + properties_.getProperty("interimage.projectName"));
 		
 		if (debugging.equals("true")) {
 			request.setSteps(Arrays.asList(enableDebugging, installPig));

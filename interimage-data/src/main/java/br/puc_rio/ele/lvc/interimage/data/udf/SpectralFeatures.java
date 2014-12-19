@@ -39,9 +39,7 @@ import org.apache.pig.data.DataType;
 import org.apache.pig.data.Tuple;
 import org.apache.pig.impl.logicalLayer.schema.Schema;
 
-import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
-import com.vividsolutions.jts.geom.GeometryFactory;
 
 import br.puc_rio.ele.lvc.interimage.common.Common;
 import br.puc_rio.ele.lvc.interimage.data.imageioimpl.plugins.tiff.TIFFImageReader;
@@ -69,7 +67,7 @@ public class SpectralFeatures extends EvalFunc<DataBag> {
 	//private Long _currentTileId;
 	
 	/**Constructor that takes image URL, feature list and tile size.*/
-	public SpectralFeatures(String imageUrl, String features, String tileSize) {
+	public SpectralFeatures(String imageUrl, String features/*, String tileSize*/) {
 		_imageUrl = imageUrl;
 		_features = features;
 		//_tileSize = Double.parseDouble(tileSize);
@@ -172,8 +170,8 @@ public class SpectralFeatures extends EvalFunc<DataBag> {
 				Map<String,Object> properties = DataType.toMap(t.get(2));
 								
 				Geometry geometry = _geometryParser.parseGeometry(objGeometry);
-				
-				Geometry tileGeom = null;
+							
+				//Geometry tileGeom = null;
 				
 				//TODO: maybe it's not necessary to compute the tiles
 				//List<String> tiles = _tileManager.getTiles(new double[] {geometry.getEnvelopeInternal().getMinX(), geometry.getEnvelopeInternal().getMinY(), geometry.getEnvelopeInternal().getMaxX(), geometry.getEnvelopeInternal().getMaxY()});
@@ -181,7 +179,7 @@ public class SpectralFeatures extends EvalFunc<DataBag> {
 				if (_featureMap == null) {
 					//String crs = DataType.toString(properties.get("crs"));
 					parseFeatures();
-					//_tileManager = new FixedGridTileManager(_tileSize, crs);
+					//_tileManager = new SFCTileManager(_tileSize, crs);
 				}
 				
 				if (_newBag) {
@@ -205,7 +203,9 @@ public class SpectralFeatures extends EvalFunc<DataBag> {
 					
 					List<String> tiles = new ArrayList<String>();
 					tiles.add(tileStr);
-										
+									
+					//System.out.println(tileStr);
+					
 				//TODO: Think about multiple assignment, works for single 
 								
 				//Map<String,Image> imageObjects = new HashMap<String,Image>();
@@ -361,7 +361,7 @@ public class SpectralFeatures extends EvalFunc<DataBag> {
 					                //aux.put(String.valueOf(tileIndex), aux2);
 					                //tileIndex++;
 					                
-									tileGeom = new GeometryFactory().createPolygon(new Coordinate[] { new Coordinate(tileGeoBox[0], tileGeoBox[1]), new Coordinate(tileGeoBox[2], tileGeoBox[1]), new Coordinate(tileGeoBox[2], tileGeoBox[3]), new Coordinate(tileGeoBox[0], tileGeoBox[3]), new Coordinate(tileGeoBox[0], tileGeoBox[1])});
+									//tileGeom = new GeometryFactory().createPolygon(new Coordinate[] { new Coordinate(tileGeoBox[0], tileGeoBox[1]), new Coordinate(tileGeoBox[2], tileGeoBox[1]), new Coordinate(tileGeoBox[2], tileGeoBox[3]), new Coordinate(tileGeoBox[0], tileGeoBox[3]), new Coordinate(tileGeoBox[0], tileGeoBox[1])});
 									
 								}
 				                
@@ -416,8 +416,8 @@ public class SpectralFeatures extends EvalFunc<DataBag> {
 				//if (iiuuid.equals("84c425af-3957-424b-9883-92c174ccad8d")) {
 				
 				//long startTime = System.nanoTime();
-
-				geometry = tileGeom.intersection(geometry);
+				
+				//geometry = tileGeom.intersection(geometry);
 				
 				features = new FeatureCalculator().computeFeatures(_imageMap, _featureMap, geometry);
 					

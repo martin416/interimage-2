@@ -59,7 +59,7 @@ public class FixedGridTileManager implements TileManager {
         for (int j=tileMinY; j<=tileMaxY; j++) {
         	for (int i=tileMinX; i<=tileMaxX; i++) {
         		long id = ((long)j)*_numTilesX+i+1;
-        		list.add("T" + id);
+        		list.add(encode(id));
         	}
         }
         
@@ -98,7 +98,7 @@ public class FixedGridTileManager implements TileManager {
 				Tile tile = new Tile();
 				long id = ((long)j)*_numTilesX+i+1;
 				tile.setId(id);
-				tile.setCode("T" + id);
+				tile.setCode(encode(id));
 				
 				double geoX = i*_tileSize + _worldBBox[0];
 				double geoY = j*_tileSize + _worldBBox[1];

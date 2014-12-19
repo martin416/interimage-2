@@ -48,11 +48,13 @@ public class CalculateTiles extends EvalFunc<String> {
 	private STRtree _gridIndex = null;
 	private String _gridUrl = null;
 	private String _assignment = null;
+	private double _resolution;
 	
 	/**Constructor that takes the tiles grid URL and assignment type.*/
-	public CalculateTiles(String gridUrl, String assignment) {		
-		_gridUrl = gridUrl;		
+	public CalculateTiles(String gridUrl, String assignment, String resolution) {		
+		_gridUrl = gridUrl;
 		_assignment = assignment;
+		_resolution = Double.parseDouble(resolution);
 	}
 	
 	/**
@@ -65,7 +67,7 @@ public class CalculateTiles extends EvalFunc<String> {
 	@SuppressWarnings("unchecked")
 	@Override
 	public String exec(Tuple input) throws IOException {
-		if (input == null || input.size() == 0)
+		if (input == null || input.size() < 2)
             return null;
      		
 		//executes initialization
@@ -89,7 +91,7 @@ public class CalculateTiles extends EvalFunc<String> {
 				    
 				    for (Tile t : tiles) {
 				    	Geometry geometry = new WKTReader().read(t.getGeometry());
-    					_gridIndex.insert(geometry.getEnvelopeInternal(),t);
+    					_gridIndex.insert(geometry.buffer(_resolution/(-2)).getEnvelopeInternal(),t);
 				    }
 			        			        
 	        	}
@@ -100,8 +102,10 @@ public class CalculateTiles extends EvalFunc<String> {
 		}
 		
 		try {
-			
+						
 			Object objGeometry = input.get(0);
+			String tileStr = DataType.toString(input.get(1));
+			
 			Geometry geom = _geometryParser.parseGeometry(objGeometry);
 			
 			List<Tile> list = _gridIndex.query(geom.getEnvelopeInternal());
@@ -135,19 +139,26 @@ public class CalculateTiles extends EvalFunc<String> {
 				
 			} else {
 				
-				/*Assign to the tile with minimum ID*/
-				long min = Long.MAX_VALUE;
+				/*Assign to the tile with the minimum code*/
+				String min = new String();
 				
 				for (String t : tiles) {
-					long id = Long.parseLong(t.substring(1));
-					if (id < min)
-						min = id;
+					if (min.isEmpty()) {
+						min = t;
+					} else {
+						if (t.compareTo(min) < 0) {
+							min = t;
+						}
+					}
 				}
 				
 				//TODO: store the full list in a property
-				tileString = "T" + String.valueOf(min);
+				tileString = min;
 				
 			}
+			
+			if (tileString.isEmpty())
+				tileString = tileStr;
 			
 			return tileString;
 			

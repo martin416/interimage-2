@@ -59,12 +59,11 @@ public class MergeResolved extends EvalFunc<DataBag> {
 				
 		try {
 		
-			Map<String, List<Geometry>> map = new HashMap<String, List<Geometry>>();
-			Map<String, String> classMap = new HashMap<String, String>();
+			Map<String, List<Geometry>> map1 = new HashMap<String, List<Geometry>>();
+			Map<String, List<String>> map2 = new HashMap<String, List<String>>();
 			
 			String crs = null;
 			Map<String,String> data = null;
-			String parent = null;
 						
 			Iterator it = bag.iterator();
 		    while (it.hasNext()) {
@@ -75,23 +74,27 @@ public class MergeResolved extends EvalFunc<DataBag> {
 				
 		        String iiuuid = DataType.toString(props.get("iiuuid"));
 		        String className = DataType.toString(props.get("class"));
+		        String parent = DataType.toString(props.get("parent"));
 		        
-		        if (!classMap.containsKey(iiuuid))
-		        	classMap.put(iiuuid, className);
-		        
+		        if (!map2.containsKey(iiuuid)) {
+		        	List<String> l = new ArrayList<String>(2);
+		        	l.add(className);
+		        	l.add(parent);
+		        	map2.put(iiuuid, l);
+		        }
+		        	
 		        if (crs == null) {
 		        	crs = DataType.toString(props.get("crs"));
-		        	data = (Map<String,String>)t.get(1);
-		        	parent = DataType.toString(props.get("parent"));		        	
+		        	data = (Map<String,String>)t.get(1);		        			        	
 		        }
 		        
-		        if (map.containsKey(iiuuid)) {
-		        	List<Geometry> l = map.get(iiuuid);
+		        if (map1.containsKey(iiuuid)) {
+		        	List<Geometry> l = map1.get(iiuuid);
 		        	l.add(geometry);
 		        } else {
 		        	List<Geometry> l = new ArrayList<Geometry>();
 		        	l.add(geometry);
-		        	map.put(iiuuid, l);
+		        	map1.put(iiuuid, l);
 		        }
 		        
 		    }
@@ -100,7 +103,7 @@ public class MergeResolved extends EvalFunc<DataBag> {
 		    
 		    GeometryFactory fact = new GeometryFactory();
 		    
-		    for (Map.Entry<String, List<Geometry>> entry : map.entrySet()) {
+		    for (Map.Entry<String, List<Geometry>> entry : map1.entrySet()) {
 	        	
 				String iiuuid = entry.getKey();
 				
@@ -132,11 +135,11 @@ public class MergeResolved extends EvalFunc<DataBag> {
 	        		//TODO: how to handle parent and tile info?
 	        		
 	        		props.put("crs", crs);
-	        		props.put("class", classMap.get(iiuuid));
+	        		props.put("class", map2.get(iiuuid).get(0));
 	        		props.put("tile", "");
 	        		props.put("membership", "0.0");
 	        		props.put("iiuuid", id2);
-	        		props.put("parent", parent);
+	        		props.put("parent", map2.get(iiuuid).get(1));
 	        		        		
 	        		t.set(0,new WKTWriter().write(aux));
 	        		t.set(1,new HashMap<String,String>(data));

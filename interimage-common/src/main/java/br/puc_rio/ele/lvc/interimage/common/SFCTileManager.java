@@ -29,8 +29,8 @@ public class SFCTileManager implements TileManager {
 	 *  ----------------
 	 * */
 		
-	private String[] _directions = new String[] {"l", "m", "s", "g"}; //libeccio, maestro, greco, scirocco
-	//private String[] _directions = new String[] {"w", "x", "y", "z"};	//
+	//private String[] _directions = new String[] {"l", "m", "s", "g"}; //libeccio, maestro, greco, scirocco
+	private String[] _directions = new String[] {"w", "x", "y", "z"};	//
 	//private String[] _directions = new String[] {"a", "b", "c", "d"};
 	
 	Map<String,Integer> _directionsMap = new HashMap<String,Integer>();
@@ -139,7 +139,7 @@ public class SFCTileManager implements TileManager {
 		return encodeCoordinates(i, j, level);
 	}
 	
-	private String encodeCoordinates(int i, int j, int level) {
+	public String encodeCoordinates(int i, int j, int level) {
 		
 		if (level>=_levels)
 			return "";

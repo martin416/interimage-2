@@ -36,6 +36,7 @@ public class OrderedList {
 				Map<String,Object> p = DataType.toMap(value.get(2));
 				
 				Double m = DataType.toDouble(p.get("membership"));
+				String cn = DataType.toString(p.get("class"));
 				
 				int pos = -1;
 				
@@ -45,9 +46,18 @@ public class OrderedList {
 					
 					Double membership = DataType.toDouble(props.get("membership"));
 					
-					if (m <= membership) {
+					if (m < membership) {
 						pos = i;
 						break;
+					} else if (m == membership) {
+						
+						String className = DataType.toString(props.get("class"));
+						
+						if (cn.compareTo(className) <= 0) {
+							pos = i;
+							break;	
+						}
+						
 					}
 
 				}

@@ -36,15 +36,15 @@ public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 
 	private static final long serialVersionUID = 8285085270334519490L;
 	public Jobs mortarJobs_;
-	private ClusterManager clusterManager_;
+	private ClusterManager[] clusterManager_;
+	private String[] clusterId_;
+	private int nClusters_;
 	private boolean setup_;
-	@SuppressWarnings("unused")
 	private Properties properties_;
 	
 	public gController() {
 		super(gEdge.class);
 		
-		clusterManager_ = new AWSClusterManager();
 		setup_=true;
 		
 		// TODO Auto-generated constructor stub
@@ -52,7 +52,17 @@ public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 
 	public void setProperties(Properties props) {
 		properties_ = props;
-		clusterManager_.setProperties(props);
+		
+		nClusters_ = Integer.parseInt(properties_.getProperty("interimage.numberOfClusters"));
+		
+		clusterManager_ = new AWSClusterManager[nClusters_];
+		
+		clusterId_ = new String[nClusters_];
+		
+		for (int i=0; i<nClusters_; i++) {
+			clusterManager_[i].setProperties(props);
+		}
+		
 	}
 	
 	public String exportToJSON(){
@@ -215,14 +225,14 @@ public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 	}
 	
 	//run controller
-	public int run(String clusterId)
+	public int run(Integer clusterIdx)
 	{
 				
 		System.out.println("Controller: run");
 		
 		int numberOfRunningNodes=0;
 		Set<gNode> nodes = this.vertexSet();
-		
+				
 		for (gNode node : nodes )
 		{
 			
@@ -256,30 +266,41 @@ public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 				System.out.println("Controller: available");
 				
 				//call node run method
-				node.run(clusterManager_, clusterId, setup_);
+				node.run(clusterManager_[clusterIdx], clusterId_[clusterIdx], setup_);
 				
 				numberOfRunningNodes=numberOfRunningNodes+1;
 				
 				/*Setup for libs and hadoop/pig in the first run*/
 				/*if (setup_)
 					setup_ = false;*/
+			
+				clusterIdx++;
+				
+				if (clusterIdx >= (nClusters_)) {
+					clusterIdx = 0;
+				}
 				
 			}
-
+			
 		}
 		return numberOfRunningNodes;
 	}
 	
 	public int execute() {
 		
-		String clusterId = clusterManager_.createCluster();
+		for (int i=0; i<nClusters_; i++) {
+			clusterId_[i] = clusterManager_[i].createCluster();
+		}
 		
 		try {
 			
 			int runningNodes = 999;
 			
+			Integer clusterIdx = new Integer(0);
+			
 			while (runningNodes > 0) {
-			    runningNodes = run(clusterId);
+			    runningNodes = run(clusterIdx);
+			    System.out.println("Cluster: " + clusterIdx);
 			    System.out.println("Step");
 			    System.out.println(runningNodes);
 			    Thread.sleep(10000);			    
@@ -289,8 +310,10 @@ public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 		    Thread.currentThread().interrupt();
 		}
 		
-		clusterManager_.terminateCluster(clusterId);
-		
+		for (int i=0; i<nClusters_; i++) {
+			clusterManager_[i].terminateCluster(clusterId_[i]);
+		}
+				
 		return 0;
 	}
 	

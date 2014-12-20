@@ -49,12 +49,14 @@ public class CalculateTiles extends EvalFunc<String> {
 	private String _gridUrl = null;
 	private String _assignment = null;
 	private double _resolution;
+	private String _buffer;
 	
 	/**Constructor that takes the tiles grid URL and assignment type.*/
-	public CalculateTiles(String gridUrl, String assignment, String resolution) {		
+	public CalculateTiles(String gridUrl, String assignment, String resolution, String buffer) {		
 		_gridUrl = gridUrl;
 		_assignment = assignment;
 		_resolution = Double.parseDouble(resolution);
+		_buffer = buffer;
 	}
 	
 	/**
@@ -91,7 +93,14 @@ public class CalculateTiles extends EvalFunc<String> {
 				    
 				    for (Tile t : tiles) {
 				    	Geometry geometry = new WKTReader().read(t.getGeometry());
-    					_gridIndex.insert(geometry.buffer(_resolution/(-2)).getEnvelopeInternal(),t);
+				    	if (_buffer.equals("positive")) {
+				    		_gridIndex.insert(geometry.buffer(_resolution/2).getEnvelopeInternal(),t);
+				    	} else if (_buffer.equals("negative")) {
+				    		_gridIndex.insert(geometry.buffer(_resolution/(-2)).getEnvelopeInternal(),t);
+				    	} else {
+				    		_gridIndex.insert(geometry.getEnvelopeInternal(),t);
+				    	}
+    					
 				    }
 			        			        
 	        	}

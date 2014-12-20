@@ -66,21 +66,33 @@ public class SimpleSpatialResolve extends EvalFunc<DataBag> {
 					
 			        String iiuuid = DataType.toString(props.get("iiuuid"));
 			        Double membership = DataType.toDouble(props.get("membership"));
-					
+			        String className = DataType.toString(props.get("class"));
+			        
 			        if (map.containsKey(iiuuid)) {
 			        	List<Object> list = map.get(iiuuid);
 			        	
 			        	Double m = (Double)list.get(0);
-			        	//Tuple t = (Tuple)list.get(1);
+			        	String cn = (String)list.get(1);
+			        	//Tuple t = (Tuple)list.get(2);
 			        	
 			        	if (membership > m) {
 			        		list.add(0,membership);
-			        		list.add(1,tuple);
+			        		list.add(1,className);
+			        		list.add(2,tuple);
+			        	} else if (membership == m) {
+			        		
+			        		if (className.compareTo(cn) > 0) {
+			        			list.add(0,membership);
+				        		list.add(1,className);
+				        		list.add(2,tuple);
+			        		}
+			        		
 			        	}
 			        	
 			        } else {
 			        	List<Object> list = new ArrayList<Object>(2);
 			        	list.add(membership);
+			        	list.add(className);
 			        	list.add(tuple);
 			        	map.put(iiuuid, list);
 			        }

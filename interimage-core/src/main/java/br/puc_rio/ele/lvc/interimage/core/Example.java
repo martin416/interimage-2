@@ -113,7 +113,7 @@ public class Example {
 		
 		String script2 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n"
 				+ "DEFINE SpectralFeatures br.puc_rio.ele.lvc.interimage.data.udf.SpectralFeatures('$IMAGES_PATH','mean2 = mean(image_layer2);mean3 = mean(image_layer3);ratio4 = ratio(image_layer4);');\n\n"
-				+ "DEFINE II_CalculateTiles br.puc_rio.ele.lvc.interimage.geometry.udf.CalculateTiles('$TILES_FILE','multiple','$MIN_RESOLUTION');\n\n"
+				+ "DEFINE II_CalculateTiles br.puc_rio.ele.lvc.interimage.geometry.udf.CalculateTiles('$TILES_FILE','multiple','$MIN_RESOLUTION','negative');\n\n"
 				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n" 
 				+ "group = II_SpectralFeatures($LAST_RELATION, $PARALLEL);\n\n"
 				+ "selection = FILTER $LAST_RELATION BY II_IsValid(null, properties, 'mean2,mean3,ratio4');\n\n"
@@ -149,7 +149,7 @@ public class Example {
 		
 		String script3 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n"				
 				+ "DEFINE SpectralFeatures br.puc_rio.ele.lvc.interimage.data.udf.SpectralFeatures('$IMAGES_PATH','brightness = brightness(image);mean1 = mean(image_layer1);bandMeanDiv31 = bandMeanDiv(image_layer3,image_layer1);maxPixVal1 = maxPixelValue(image_layer1);ratio2 = ratio(image_layer2);');\n\n"
-				+ "DEFINE II_CalculateTiles br.puc_rio.ele.lvc.interimage.geometry.udf.CalculateTiles('$TILES_FILE','multiple','$MIN_RESOLUTION');\n\n"
+				+ "DEFINE II_CalculateTiles br.puc_rio.ele.lvc.interimage.geometry.udf.CalculateTiles('$TILES_FILE','multiple','$MIN_RESOLUTION','negative');\n\n"
 				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n" 
 				+ "group = II_SpectralFeatures($LAST_RELATION, $PARALLEL);\n\n"
 				+ "selection = FILTER $LAST_RELATION BY II_IsValid(null, properties, 'brightness,mean1,bandMeanDiv31,maxPixVal1,ratio2');\n\n"
@@ -233,7 +233,7 @@ public class Example {
 		gClusterOperator op5 = g1.addClusterOperator();
 		
 		String script5 = "DEFINE SpectralFeatures br.puc_rio.ele.lvc.interimage.data.udf.SpectralFeatures('$IMAGES_PATH','bandMeanDiv31 = bandMeanDiv(image_layer3,image_layer1);');\n\n"
-				+ "DEFINE II_CalculateTiles br.puc_rio.ele.lvc.interimage.geometry.udf.CalculateTiles('$TILES_FILE','multiple','$MIN_RESOLUTION');\n\n"
+				+ "DEFINE II_CalculateTiles br.puc_rio.ele.lvc.interimage.geometry.udf.CalculateTiles('$TILES_FILE','multiple','$MIN_RESOLUTION','negative');\n\n"
 				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n" 
 				+ "group = II_SpectralFeatures($LAST_RELATION, $PARALLEL);\n\n"
 				+ "selection = FILTER $LAST_RELATION BY II_IsValid(null, properties, 'bandMeanDiv31');\n\n"
@@ -257,7 +257,7 @@ public class Example {
 		gClusterOperator op6 = g1.addClusterOperator();
 		
 		String script6 = "DEFINE II_SelectClass br.puc_rio.ele.lvc.interimage.common.udf.SelectClass('$SEMANTICNET_FILE');\n\n"
-				+ "DEFINE II_CalculateTiles br.puc_rio.ele.lvc.interimage.geometry.udf.CalculateTiles('$TILES_FILE','multiple','$MIN_RESOLUTION');\n\n"
+				+ "DEFINE II_CalculateTiles br.puc_rio.ele.lvc.interimage.geometry.udf.CalculateTiles('$TILES_FILE','multiple','$MIN_RESOLUTION','negative');\n\n"
 				+ "DEFINE SpatialResolve br.puc_rio.ele.lvc.interimage.data.udf.SpatialResolve('$RESOLVE_MIN_AREA','$IMAGES_PATH','image');\n\n"
 				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n" 
 				+ "selection = FILTER load_1 BY II_SelectClass(properties#'class','Shadow');\n\n"
@@ -389,7 +389,7 @@ public class Example {
 		Joiner joiner = Joiner.on(";").skipNulls();
 		
 		String script8 = "DEFINE II_AggregationFeatures br.puc_rio.ele.lvc.interimage.geometry.udf.AggregationFeatures('" + joiner.join(aggregation_attributes) + "');\n\n"
-				+ "DEFINE II_CalculateTiles br.puc_rio.ele.lvc.interimage.geometry.udf.CalculateTiles('$TILES_FILE','single','$MIN_RESOLUTION');\n\n"
+				+ "DEFINE II_CalculateTiles br.puc_rio.ele.lvc.interimage.geometry.udf.CalculateTiles('$TILES_FILE','single','$MIN_RESOLUTION','negative');\n\n"
 				+ "blocks = LOAD '$AUX_INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
 				+ "blocks = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(II_CalculateTiles(geometry, properties#'tile'), 'tile', properties) AS properties;\n\n"
 				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
@@ -521,6 +521,26 @@ public class Example {
 
 		//op13.setEnabled(false);
 		
+		/*operator that classifies horizontal residential high standard*/
+		
+		String script14 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n" 
+				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(II_Area(geometry),'area',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(properties#'sum_area_vegetation' / properties#'area','rel_area_vegetation',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('HorizontalResidentialHighStandard',II_Min(II_Membership('rel_area_veg_hrhs',properties#'rel_area_vegetation'),II_Membership('number_building_shadow_hrhs',properties#'count_building_shadow'),II_Membership('number_ceramic_roof_hrhs',properties#'count_ceramic_roof')),properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n";
+		
+		gClusterOperator op14 = g2.addClusterOperator();
+		
+		//op14.setParser(parser);
+		op14.setProperties(props);
+		op14.setScript(script14);
+		op14.setParameter("$STORE","true");
+		op14.setParameter("$INPUT_PATH", op8.getOutputPath());
+		op14.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op14_horizontal_residential_high_stantard" /*+ randomGenerator.nextInt(100000)*/);
+
+		//op14.setEnabled(false);
+		
 		/*operator that classifies mixed residential services */
 		
 		String script15 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n"
@@ -543,6 +563,50 @@ public class Example {
 		
 		//op15.setEnabled(false);
 		
+		/*operator that classifies industrial services*/
+		
+		String script16 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n" 
+				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(II_Area(geometry),'area',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(properties#'sum_area_vegetation' / properties#'area','rel_area_vegetation',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(properties#'sum_area_ceramic_roof' / properties#'area','rel_area_ceramic_roof',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(properties#'sum_area_various_roofs' / properties#'area','rel_area_various_roofs',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('IndustrialServices',II_Min(II_Max(II_Membership('max_rect_big_blue_is',properties#'max_rect_big_blue'),II_Membership('max_rect_big_bright_is',properties#'max_rect_big_bright'),II_Membership('max_rect_big_bright_grey_is',properties#'max_rect_big_bright_grey'),II_Membership('max_rect_big_grey_is',properties#'max_rect_big_grey'),II_Membership('max_rect_big_dark_is',properties#'max_rect_big_dark'),II_Membership('rel_area_various_roofs_is',properties#'rel_area_various_roofs')),II_Max(II_Membership('max_rect_building_shadow_is',properties#'max_rect_building_shadow'),II_Membership('inexistence_building_shadow_is',properties#'count_building_shadow')),II_Membership('rel_area_ceramic_roof_is',properties#'rel_area_ceramic_roof'),II_Membership('rel_area_veg_is',properties#'rel_area_vegetation')),properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n";
+		
+		gClusterOperator op16 = g2.addClusterOperator();
+		
+		//op16.setParser(parser);
+		op16.setProperties(props);
+		op16.setScript(script16);
+		op16.setParameter("$STORE","true");
+		op16.setParameter("$INPUT_PATH", op8.getOutputPath());
+		op16.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op16_industrial_services" /*+ randomGenerator.nextInt(100000)*/);
+
+		//op16.setEnabled(false);
+		
+		/*operator that classifies favelas*/
+		
+		String script17 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n" 
+				+ "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(II_Area(geometry),'area',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(properties#'sum_area_vegetation' / properties#'area','rel_area_vegetation',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(properties#'sum_area_ceramic_roof' / properties#'area','rel_area_ceramic_roof',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToProps(properties#'sum_area_various_roofs' / properties#'area','rel_area_various_roofs',properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_ToClassification('Favelas',II_Min(II_Max(II_Min(II_Membership('inexistence_big_roofs_f',properties#'count_big_roofs'),II_Membership('rel_area_veg_2_f',properties#'rel_area_vegetation'),II_Membership('rel_area_various_roofs_f',properties#'rel_area_various_roofs')),II_Min(II_Membership('existence_big_roofs_f',properties#'count_big_roofs'),II_Membership('mean_rect_big_roofs_f',properties#'mean_rect_big_roofs'))),II_Max(II_Membership('max_rect_building_shadow_f',properties#'max_rect_building_shadow'),II_Membership('inexistence_building_shadow_f',properties#'count_building_shadow')),II_Membership('rel_area_ceramic_roof_f',properties#'rel_area_ceramic_roof'),II_Membership('rel_area_veg_f',properties#'rel_area_vegetation')),properties) as properties;\n\n"
+				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n";
+		
+		gClusterOperator op17 = g2.addClusterOperator();
+		
+		//op17.setParser(parser);
+		op17.setProperties(props);
+		op17.setScript(script17);
+		op17.setParameter("$STORE","true");
+		op17.setParameter("$INPUT_PATH", op8.getOutputPath());
+		op17.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op17_favelas" /*+ randomGenerator.nextInt(100000)*/);
+
+		//op17.setEnabled(false);
+		
 		/*operator that resolves spatial conflicts */
 		
 		String script18 = "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
@@ -555,7 +619,7 @@ public class Example {
 		op18.setProperties(props);
 		op18.setScript(script18);
 		op18.setParameter("$STORE","true");
-		op18.setParameter("$INPUT_PATH", op9.getOutputPath() + "," + op10.getOutputPath() + "," + op11.getOutputPath() + "," + op12.getOutputPath() + "," + op13.getOutputPath() + "," + op15.getOutputPath());
+		op18.setParameter("$INPUT_PATH", op9.getOutputPath() + "," + op10.getOutputPath() + "," + op11.getOutputPath() + "," + op12.getOutputPath() + "," + op13.getOutputPath() + "," + op14.getOutputPath() + "," + op15.getOutputPath() + "," + op16.getOutputPath() + "," + op17.getOutputPath());
 		op18.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op18_all" /*+ randomGenerator.nextInt(100000)*/);
 		
 		//op18.setEnabled(false);

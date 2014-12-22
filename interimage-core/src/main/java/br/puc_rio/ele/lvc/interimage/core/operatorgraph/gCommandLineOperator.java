@@ -5,6 +5,7 @@ import java.io.IOException;
 import org.json.JSONObject;
 
 import br.puc_rio.ele.lvc.interimage.core.clustermanager.ClusterManager;
+import br.puc_rio.ele.lvc.interimage.core.clustermanager.ExecutionTracker;
 
 public class gCommandLineOperator extends gOperator {
 
@@ -23,25 +24,27 @@ public class gCommandLineOperator extends gOperator {
 	public void setCommandLine(String commandLine_) {
 		this.commandLine_ = commandLine_;
 	}
+	
+	//TODO: verify if this method is compliant with the new ExecutionTracker mechanism
 
 	@Override
-	protected int execute(ClusterManager clusterManager, String clusterId, boolean setup) {
+	protected ExecutionTracker execute(ClusterManager clusterManager, String clusterId, boolean setup) {
 		// TODO Auto-generated method stub
 		Runtime rt = Runtime.getRuntime();
 		
 		try {
 			Process pr = rt.exec(commandLine_);
 			int value = pr.waitFor();
-			return value;
+			return null;
 			
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-			return 0;
+			return null;
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-			return 0;
+			return null;
 		}
 		
 	}

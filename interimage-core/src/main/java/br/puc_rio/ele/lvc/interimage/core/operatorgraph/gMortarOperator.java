@@ -3,6 +3,7 @@ package br.puc_rio.ele.lvc.interimage.core.operatorgraph;
 import org.json.JSONObject;
 
 import br.puc_rio.ele.lvc.interimage.core.clustermanager.ClusterManager;
+import br.puc_rio.ele.lvc.interimage.core.clustermanager.ExecutionTracker;
 
 import com.mortardata.api.v2.JobRequest;
 import com.mortardata.api.v2.Jobs;
@@ -50,7 +51,8 @@ public class gMortarOperator extends gOperator {
 		this.pigScriptPath_ = pigScriptPath;
 	}
 	
-	protected int execute(ClusterManager clusterManager, String clusterId, boolean setup)
+	//TODO: verify if this method is compliant with the new ExecutionTracker mechanism
+	protected ExecutionTracker execute(ClusterManager clusterManager, String clusterId, boolean setup)
 	{
 		JobRequest jobRequest = new JobRequest(projectName_, pigScriptPath_, codeVersion_, clusterSize_);
 		String jobId;
@@ -59,14 +61,14 @@ public class gMortarOperator extends gOperator {
 			jobId = jobs_.postJob(jobRequest);
 			finalJobStatus = jobs_.blockUntilJobComplete(jobId);
 			if (finalJobStatus==JobStatus.SUCCESS)
-					return 1;
+					return null;
 			else
-					return 0;
+					return null;
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		return 0;
+		return null;
 	}
 	public Jobs getJobs_() {
 		return jobs_;

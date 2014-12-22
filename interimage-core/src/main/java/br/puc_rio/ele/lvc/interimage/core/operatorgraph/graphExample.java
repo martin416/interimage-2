@@ -115,7 +115,7 @@ public class graphExample {
 		
 		try {
 		    Thread.sleep(1000);
-		    g.run(0);
+		    g.run();
 		} catch(InterruptedException ex) {
 		    Thread.currentThread().interrupt();
 		}

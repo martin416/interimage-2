@@ -5,27 +5,45 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.json.JSONObject;
 
 import br.puc_rio.ele.lvc.interimage.core.clustermanager.ClusterManager;
+import br.puc_rio.ele.lvc.interimage.core.clustermanager.ExecutionTracker;
 
 public abstract class gNode {
 
 	private boolean running_=false;
-	private boolean available_=true;
+	private boolean available_=false;
 	private boolean executed_=false;
 	private boolean enabled_=true;
 	private int requests_=0;
     static final AtomicLong NEXT_ID = new AtomicLong(0);
     final long id_ = NEXT_ID.getAndIncrement();
+    private ExecutionTracker tracker_;
  	
-	public void run(ClusterManager clusterManager, String clusterId, boolean setup){		
+	public ExecutionTracker run(ClusterManager clusterManager, String clusterId, boolean setup){		
 		this.setRunning(true);
 		//exec something	
-		execute(clusterManager, clusterId, setup);
+		tracker_ = execute(clusterManager, clusterId, setup);
+		/*this.setRunning(false);
+		this.setExecuted(true);
+		this.setAvailable(false);*/
+		
+		return tracker_;
+	}
+
+	public String getStatus() {
+		return tracker_.getStatus();
+	}
+	
+	public boolean isDone() {
+		return tracker_.isDone();
+	}
+	
+	public void setDone() {
 		this.setRunning(false);
 		this.setExecuted(true);
 		this.setAvailable(false);
 	}
-
-	protected abstract int execute(ClusterManager clusterManager, String clusterId, boolean setup);
+	
+	protected abstract ExecutionTracker execute(ClusterManager clusterManager, String clusterId, boolean setup);
 	
 	public boolean isEnabled() {
 		return enabled_;

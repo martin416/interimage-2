@@ -27,7 +27,7 @@ public interface ClusterManager {
 	
 	public String createCluster();
 	
-	public void runPigScript(String script, String clusterId);
+	public ExecutionTracker runPigScript(String script, String clusterId);
 	
 	public void terminateCluster(String clusterId);
 	

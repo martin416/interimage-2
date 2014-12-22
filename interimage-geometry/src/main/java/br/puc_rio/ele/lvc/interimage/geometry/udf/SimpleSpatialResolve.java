@@ -90,7 +90,7 @@ public class SimpleSpatialResolve extends EvalFunc<DataBag> {
 			        	}
 			        	
 			        } else {
-			        	List<Object> list = new ArrayList<Object>(2);
+			        	List<Object> list = new ArrayList<Object>(3);
 			        	list.add(membership);
 			        	list.add(className);
 			        	list.add(tuple);
@@ -102,7 +102,7 @@ public class SimpleSpatialResolve extends EvalFunc<DataBag> {
 							
 			for (Map.Entry<String, List<Object>> entry : map.entrySet()) {
 				List<Object> list = entry.getValue();				
-				output.add((Tuple)list.get(1));				
+				output.add((Tuple)list.get(2));				
 			}
 			
 			return output;

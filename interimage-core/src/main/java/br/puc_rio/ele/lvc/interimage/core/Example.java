@@ -53,6 +53,7 @@ public class Example {
 		gClusterOperator op1 = g1.addClusterOperator();
 		
 		//op1.setParser(parser);
+		op1.setName("Segmentation for vegetation");
 		op1.setOperatorName("MutualMultiresolutionSegmentation");
 		op1.setProperties(props);
 		op1.setParameter("$IMAGE_KEY","image");
@@ -67,7 +68,7 @@ public class Example {
 		op1.setParameter("$STORE","true");
 		op1.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op1_segmentation" /*+ randomGenerator.nextInt(100000)*/);
 		
-		op1.setEnabled(false);
+		//op1.setEnabled(false);
 		
 		/*Map<String,String> params = new HashMap<String, String>();
 		
@@ -91,6 +92,7 @@ public class Example {
 		gClusterOperator opa = g1.addClusterOperator();
 		
 		//op1.setParser(parser);
+		opa.setName("Segmentation for roofs");
 		opa.setOperatorName("MutualMultiresolutionSegmentation");
 		opa.setProperties(props);
 		opa.setParameter("$IMAGE_KEY","image");
@@ -105,7 +107,31 @@ public class Example {
 		opa.setParameter("$STORE","true");
 		opa.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/opa_segmentation" /*+ randomGenerator.nextInt(100000)*/);
 				
-		opa.setEnabled(false);
+		//opa.setEnabled(false);
+		
+		/*Fourth operator executes shadow classification*/
+		
+		gClusterOperator op4 = g1.addClusterOperator();
+				
+		//op4.setParser(parser);
+		op4.setName("Limiarization of shadow");
+		op4.setOperatorName("Limiarization");
+		op4.setProperties(props);
+		op4.setParameter("$IMAGE_KEY", "image");
+		op4.setParameter("$THRESHOLDS", "0,20");
+		op4.setParameter("$CLASSES", "Shadow");
+		op4.setParameter("$OPERATION", "Brightness");
+		op4.setParameter("$MIN_AREA", String.valueOf(5.0*minResolution*minResolution));
+		op4.setParameter("$INPUT_ROI",props.getProperty("interimage.sourceURL") + "interimage/" + props.getProperty("interimage.projectName") + "/resources/shapes/blocks.ser");
+		op4.setParameter("$CLIP_MIN_AREA",String.valueOf(1.0*minResolution*minResolution));
+		op4.setParameter("$RELIABILITY", "0.3");
+		op4.setParameter("$STORE","true");
+		//op4.setParameter("$INPUT_PATH", op1.getOutputPath());
+		op4.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op4_shadow" /*+ randomGenerator.nextInt(100000)*/);
+		
+		//op4.setEnabled(false);
+		
+		//g.addEdge(op1, op4);
 		
 		/*Second operator executes trees / grass classification*/
 		
@@ -131,13 +157,14 @@ public class Example {
 		op2.setParameters(params2);*/
 	
 		//op2.setParser(parser);
+		op2.setName("Classification of vegetation");
 		op2.setProperties(props);
 		op2.setScript(script2);
 		op2.setParameter("$STORE","true");
 		op2.setParameter("$INPUT_PATH", op1.getOutputPath());
 		op2.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op2_vegetation" /*+ randomGenerator.nextInt(100000)*/);
 			
-		op2.setEnabled(false);
+		//op2.setEnabled(false);
 		
 		g1.addEdge(op1, op2);
 		
@@ -192,6 +219,7 @@ public class Example {
 		op3.setParameters(params3);*/
 		
 		//op3.setParser(parser);
+		op3.setName("Classification of roofs");
 		op3.setProperties(props);
 		op3.setScript(script3);
 		op3.setParameter("$RESOLVE_MIN_AREA", String.valueOf(1.0*minResolution*minResolution));
@@ -199,33 +227,10 @@ public class Example {
 		op3.setParameter("$INPUT_PATH", opa.getOutputPath());
 		op3.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op3_other_classes" /*+ randomGenerator.nextInt(100000)*/);
 				
-		op3.setEnabled(false);
+		//op3.setEnabled(false);
 		
 		g1.addEdge(opa, op3);
-		
-		/*Fourth operator executes shadow classification*/
-		
-		gClusterOperator op4 = g1.addClusterOperator();
 				
-		//op4.setParser(parser);
-		op4.setOperatorName("Limiarization");
-		op4.setProperties(props);
-		op4.setParameter("$IMAGE_KEY", "image");
-		op4.setParameter("$THRESHOLDS", "0,20");
-		op4.setParameter("$CLASSES", "Shadow");
-		op4.setParameter("$OPERATION", "Brightness");
-		op4.setParameter("$MIN_AREA", String.valueOf(5.0*minResolution*minResolution));
-		op4.setParameter("$INPUT_ROI",props.getProperty("interimage.sourceURL") + "interimage/" + props.getProperty("interimage.projectName") + "/resources/shapes/blocks.ser");
-		op4.setParameter("$CLIP_MIN_AREA",String.valueOf(1.0*minResolution*minResolution));
-		op4.setParameter("$RELIABILITY", "0.3");
-		op4.setParameter("$STORE","true");
-		//op4.setParameter("$INPUT_PATH", op1.getOutputPath());
-		op4.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op4_shadow" /*+ randomGenerator.nextInt(100000)*/);
-		
-		op4.setEnabled(false);
-		
-		//g.addEdge(op1, op4);
-		
 		/*Fifth operator executes red roofs classification*/
 		
 		//TODO: consider bare soil shape file
@@ -242,13 +247,14 @@ public class Example {
 				+ "projection = FOREACH $LAST_RELATION GENERATE geometry, data, II_Classify(properties) as properties;\n\n";
 		
 		//op5.setParser(parser);
+		op5.setName("Classification of ceramic roof");
 		op5.setProperties(props);
 		op5.setScript(script5);
 		op5.setParameter("$STORE","true");
 		op5.setParameter("$INPUT_PATH", opa.getOutputPath());
 		op5.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op5_ceramic_roof" /*+ randomGenerator.nextInt(100000)*/);
 				
-		op5.setEnabled(false);
+		//op5.setEnabled(false);
 		
 		g1.addEdge(opa, op5);
 		
@@ -274,6 +280,7 @@ public class Example {
 				+ "group = II_SpatialResolve($LAST_RELATION, $PARALLEL);\n\n";
 		
 		//op6.setParser(parser);
+		op6.setName("Spatial resolve");
 		op6.setProperties(props);
 		op6.setScript(script6);
 		op6.setParameter("$STORE","true");
@@ -297,6 +304,8 @@ public class Example {
 		
 		g1.execute();
 	
+		//System.out.println(g1.getMaxOutDegree());
+		
 		
 		/*Second project*/
 		
@@ -405,7 +414,7 @@ public class Example {
 		op8.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op8_blocks" /*+ randomGenerator.nextInt(100000)*/);
 			
 		//op8.setEnabled(false);
-		
+				
 		/*operator that classifies sport clubs*/
 		
 		String script9 = "load = LOAD '$INPUT_PATH' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');\n\n"
@@ -423,7 +432,7 @@ public class Example {
 		op9.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op9_sport_clubs" /*+ randomGenerator.nextInt(100000)*/);
 		
 		//op9.setEnabled(false);
-		
+				
 		/*operator that classifies vertical services*/
 		
 		String script10 = "DEFINE II_Membership br.puc_rio.ele.lvc.interimage.datamining.udf.Membership('$FUZZYSETS_FILE');\n\n" 
@@ -622,9 +631,25 @@ public class Example {
 		op18.setParameter("$INPUT_PATH", op9.getOutputPath() + "," + op10.getOutputPath() + "," + op11.getOutputPath() + "," + op12.getOutputPath() + "," + op13.getOutputPath() + "," + op14.getOutputPath() + "," + op15.getOutputPath() + "," + op16.getOutputPath() + "," + op17.getOutputPath());
 		op18.setParameter("$OUTPUT_PATH", props.getProperty("interimage.sourceSpecificURL") + "interimage/" + props.getProperty("interimage.projectName") + "/results/op18_all" /*+ randomGenerator.nextInt(100000)*/);
 		
+		g2.addEdge(op7, op8);
+		
+		g2.addEdge(op8, op9);
+		g2.addEdge(op8, op10);
+		g2.addEdge(op8, op11);
+		g2.addEdge(op8, op12);
+		g2.addEdge(op8, op13);
+		g2.addEdge(op8, op14);
+		g2.addEdge(op8, op15);
+		g2.addEdge(op8, op16);
+		g2.addEdge(op8, op17);
+		
+		g2.addEdge(op17, op18);
+		
 		//op18.setEnabled(false);
 		
-		g2.execute();
+		//g2.execute();
+		
+		//System.out.println(g2.getMaxOutDegree());
 		
 	}
 	
@@ -805,9 +830,9 @@ public class Example {
 		
 		//test();
 		
-		JSONToShapefile();
+		//JSONToShapefile();
 		
-		//runTessio();		
+		runTessio();		
 		
 		//runCluster();
 		

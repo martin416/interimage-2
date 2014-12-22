@@ -38,6 +38,7 @@ public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 	public Jobs mortarJobs_;
 	private ClusterManager[] clusterManager_;
 	private String[] clusterId_;
+	private gNode[] runningNodes_;
 	private int nClusters_;
 	private boolean setup_;
 	private Properties properties_;
@@ -51,18 +52,7 @@ public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 	}
 
 	public void setProperties(Properties props) {
-		properties_ = props;
-		
-		nClusters_ = Integer.parseInt(properties_.getProperty("interimage.numberOfClusters"));
-		
-		clusterManager_ = new AWSClusterManager[nClusters_];
-		
-		clusterId_ = new String[nClusters_];
-		
-		for (int i=0; i<nClusters_; i++) {
-			clusterManager_[i].setProperties(props);
-		}
-		
+		properties_ = props;				
 	}
 	
 	public String exportToJSON(){
@@ -158,17 +148,20 @@ public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 		Set<gEdge> relatedEdges = this.outgoingEdgesOf(node);
 		for (gEdge outgoing : relatedEdges )
 		{
-			if (outgoing.isActivated())
+			if (outgoing.isActivated()) {
 				this.getEdgeTarget(outgoing).improveRequest();
+			}
 		}
 		
 	}
 	
 	//evaluate the input data and the requests for executing 
 	public void evaluateNodeInputs(gNode node){
-		if (node.getRequests()==this.inDegreeOf(node))
-			if (!node.isExecuted())
+		if (node.getRequests()==this.inDegreeOf(node)) {
+			if (!node.isExecuted()) {
 				node.setAvailable(true);
+			}
+		}
 	}
 
 	public gMortarOperator addMortarOperator(JSONObject obj){
@@ -225,12 +218,31 @@ public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 	}
 	
 	//run controller
-	public int run(Integer clusterIdx)
+	public int run()
 	{
 				
-		System.out.println("Controller: run");
+		//System.out.println("Controller: run");
+		
+		for (int i=0; i<nClusters_; i++) {
+			if (runningNodes_[i] != null) {
+				if (runningNodes_[i].isDone()) {
+					runningNodes_[i].setDone();
+					updateLinkedNodes(runningNodes_[i]);
+					System.out.println("Finished for cluster " + i + " " + runningNodes_[i].getStatus());
+					runningNodes_[i] = null;					
+				}
+				
+				try {
+					Thread.sleep(1000);
+				} catch(InterruptedException ex) {
+				    Thread.currentThread().interrupt();
+				}
+				
+			}
+		}
 		
 		int numberOfRunningNodes=0;
+		
 		Set<gNode> nodes = this.vertexSet();
 				
 		for (gNode node : nodes )
@@ -243,78 +255,141 @@ public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 			if (node.isRunning())
 			{
 				
-				System.out.println("Controller: node running");
+				//System.out.println("Controller: node running");
 				
-				numberOfRunningNodes=numberOfRunningNodes+1;
+				//if (!node.isDone()) {
+					numberOfRunningNodes=numberOfRunningNodes+1;					
+				//} else {
+				//	node.setDone();
+				//	updateLinkedNodes(node);
+				//}
+				
 				continue;
+				
 			}
 
 			if (node.isExecuted())
 			{
 				
-				System.out.println("Controller: executed");
+				//System.out.println("Controller: executed");
 				
-				updateLinkedNodes(node);	
+				//updateLinkedNodes(node);	
 				continue;
 			}
-			
+						
 			evaluateNodeInputs(node);
-			
+									
 			if (node.isAvailable())
 			{
 				
-				System.out.println("Controller: available");
+				//System.out.println("Controller: available");
+					
+				for (int i=0; i<nClusters_; i++) {
 				
-				//call node run method
-				node.run(clusterManager_[clusterIdx], clusterId_[clusterIdx], setup_);
-				
-				numberOfRunningNodes=numberOfRunningNodes+1;
-				
-				/*Setup for libs and hadoop/pig in the first run*/
-				/*if (setup_)
-					setup_ = false;*/
-			
-				clusterIdx++;
-				
-				if (clusterIdx >= (nClusters_)) {
-					clusterIdx = 0;
+					if (runningNodes_[i] == null) {
+					
+						runningNodes_[i] = node;
+						
+						System.out.println("Running in cluster " + i);
+						
+						//call node run method
+						node.run(clusterManager_[i], clusterId_[i], setup_);
+										
+						numberOfRunningNodes=numberOfRunningNodes+1;
+						
+						/*Setup for libs and hadoop/pig in the first run*/
+						/*if (setup_)
+							setup_ = false;*/
+					
+						break;
+						
+					}
+					
 				}
 				
 			}
-			
+						
 		}
 		return numberOfRunningNodes;
 	}
 	
 	public int execute() {
 		
+		int maxClusters = Integer.parseInt(properties_.getProperty("interimage.maxNumberOfClusters"));
+						
+		int maxOutDegree = this.getMaxOutDegree();
+				
+		nClusters_ = Math.min(maxClusters, maxOutDegree);
+		
+		clusterManager_ = new AWSClusterManager[nClusters_];
+		
+		clusterId_ = new String[nClusters_];
+		
+		runningNodes_ = new gNode[nClusters_];
+		
+		//ExecutionTracker[] trackers = new ExecutionTracker[nClusters_];
+		
 		for (int i=0; i<nClusters_; i++) {
+			clusterManager_[i] = new AWSClusterManager();
+			clusterManager_[i].setProperties(properties_);
+			clusterId_[i] = new String();
 			clusterId_[i] = clusterManager_[i].createCluster();
+			runningNodes_[i] = null;
 		}
 		
 		try {
 			
 			int runningNodes = 999;
-			
-			Integer clusterIdx = new Integer(0);
-			
+						
 			while (runningNodes > 0) {
-			    runningNodes = run(clusterIdx);
-			    System.out.println("Cluster: " + clusterIdx);
-			    System.out.println("Step");
-			    System.out.println(runningNodes);
+			    runningNodes = run();			    
+			    //System.out.println("Step");
+			    //System.out.println(runningNodes);
 			    Thread.sleep(10000);			    
 			}
 			
 		} catch(InterruptedException ex) {
 		    Thread.currentThread().interrupt();
 		}
-		
-		for (int i=0; i<nClusters_; i++) {
+				
+		for (int i=0; i<nClusters_; i++) {			
 			clusterManager_[i].terminateCluster(clusterId_[i]);
 		}
 				
 		return 0;
+	}
+	
+	private int getMaxOutDegree() {
+		
+		int count = 0;
+		Set<gNode> nodes = this.vertexSet();
+		
+		for (gNode node : nodes)
+		{			
+			if (this.inDegreeOf(node)==0) {	// if it's a source node
+				count = count + getOutDegree(node);
+			}
+		}
+		
+		return count;
+	}
+	
+	private int getOutDegree(gNode node) {
+	
+		Set<gEdge> edges = this.outgoingEdgesOf(node);
+			
+		int count = 0;
+		
+		for (gEdge edge : edges) {
+			gNode n = this.getEdgeTarget(edge);	
+			if (this.inDegreeOf(n)==1) {
+				count++;
+				count = Math.max(count,getOutDegree(n));
+			}
+		}
+		
+		return count;
+		
 	}
 	
 }

@@ -8,6 +8,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import br.puc_rio.ele.lvc.interimage.core.clustermanager.ClusterManager;
+import br.puc_rio.ele.lvc.interimage.core.clustermanager.ExecutionTracker;
 
 public class gII1Operator extends gOperator {
 
@@ -19,8 +20,10 @@ public class gII1Operator extends gOperator {
 	private String outputShapeFile_;
 	private Map<String,String> parameterList_ = new HashMap<String,String>();
 	
-	@Override
-	protected int execute(ClusterManager clusterManager, String clusterId, boolean setup) {
+	//TODO: verify if this method is compliant with the new ExecutionTracker mechanism
+	
+	@Override	
+	protected ExecutionTracker execute(ClusterManager clusterManager, String clusterId, boolean setup) {
 		// TODO Auto-generated method stub
 		String command = buildCommand();
 		
@@ -29,16 +32,16 @@ public class gII1Operator extends gOperator {
 		try {
 			Process pr = rt.exec(command);
 			int value = pr.waitFor();
-			return value;
+			return null;
 			
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-			return 0;
+			return null;
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-			return 0;
+			return null;
 		}
 	}
 	

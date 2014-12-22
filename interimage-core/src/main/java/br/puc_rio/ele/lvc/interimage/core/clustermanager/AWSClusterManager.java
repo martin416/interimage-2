@@ -18,7 +18,6 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 import java.util.Random;
@@ -34,17 +33,12 @@ import com.amazonaws.services.elasticmapreduce.AmazonElasticMapReduceClient;
 import com.amazonaws.services.elasticmapreduce.model.AddJobFlowStepsRequest;
 import com.amazonaws.services.elasticmapreduce.model.AddJobFlowStepsResult;
 import com.amazonaws.services.elasticmapreduce.model.BootstrapActionConfig;
-import com.amazonaws.services.elasticmapreduce.model.DescribeStepRequest;
-import com.amazonaws.services.elasticmapreduce.model.DescribeStepResult;
 import com.amazonaws.services.elasticmapreduce.model.InstanceGroupConfig;
 import com.amazonaws.services.elasticmapreduce.model.JobFlowInstancesConfig;
 import com.amazonaws.services.elasticmapreduce.model.PlacementType;
 import com.amazonaws.services.elasticmapreduce.model.RunJobFlowRequest;
 import com.amazonaws.services.elasticmapreduce.model.RunJobFlowResult;
-import com.amazonaws.services.elasticmapreduce.model.Step;
 import com.amazonaws.services.elasticmapreduce.model.StepConfig;
-import com.amazonaws.services.elasticmapreduce.model.StepExecutionState;
-import com.amazonaws.services.elasticmapreduce.model.StepStatus;
 import com.amazonaws.services.elasticmapreduce.model.TerminateJobFlowsRequest;
 import com.amazonaws.services.elasticmapreduce.util.BootstrapActions;
 import com.amazonaws.services.elasticmapreduce.util.StepFactory;
@@ -64,13 +58,7 @@ public class AWSClusterManager implements ClusterManager {
 	        .asList(new JobFlowExecutionState[] { JobFlowExecutionState.COMPLETED,
 	                                             JobFlowExecutionState.FAILED,
 	                                             JobFlowExecutionState.TERMINATED});*/
-	
-	private static final List<StepExecutionState> STEP_DONE_STATES = Arrays
-	        .asList(new StepExecutionState[] { StepExecutionState.COMPLETED,
-	        									StepExecutionState.FAILED,
-	        									StepExecutionState.CANCELLED,
-	        									StepExecutionState.INTERRUPTED});
-	
+		
 	public void setProperties(Properties props) {
 		properties_ = props;
 	}
@@ -201,7 +189,7 @@ public class AWSClusterManager implements ClusterManager {
 		
 	}
 	
-	public void runPigScript(String script, String clusterId) {
+	public ExecutionTracker runPigScript(String script, String clusterId) {
 		
 		System.out.println("Running pig script...");
 		
@@ -240,40 +228,12 @@ public class AWSClusterManager implements ClusterManager {
 		
 		AddJobFlowStepsResult result = emr_.addJobFlowSteps(new AddJobFlowStepsRequest().withJobFlowId(clusterId).withSteps(runPigScript));
 		
-		try {
-			
-			//Check the status of the step
-	        String lastState = "";
-	        STATUS_LOOP: while (true)
-	        {
-	        	DescribeStepRequest desc = new DescribeStepRequest().withClusterId(clusterId).withStepId(result.getStepIds().get(result.getStepIds().size()-1));
-	        	
-				DescribeStepResult descResult = emr_.describeStep(desc);
-	            
-	        	Step step = descResult.getStep();
-	        	
-	        	StepStatus status = step.getStatus();
-                
-	            String state = status.getState();
-                if (stepIsDone(state))
-                {
-                    System.out.println("Step " + state + ": " + status.toString());
-                    break STATUS_LOOP;
-                }
-                else if (!lastState.equals(state))
-                {
-                    lastState = state;
-                    System.out.println("Step " + state + " at " + new Date().toString());
-                }
-	            
-	            Thread.sleep(10000);
-	        	
-	        }
-			
-		} catch (Exception e) {
-			System.out.print(e.getMessage());
-			e.printStackTrace();
-		}
+		AWSExecutionTracker tracker = new AWSExecutionTracker();
+		tracker.setJobFlowStepsResult(result);
+		tracker.setClusterId(clusterId);
+		tracker.setAmazonElasticMapReduce(emr_);
+		
+		return tracker;
 		
 		/*try {
 		
@@ -320,12 +280,6 @@ public class AWSClusterManager implements ClusterManager {
 		emr_.terminateJobFlows(terminate);
 	}
 		
-    public static boolean stepIsDone(String value)
-    {
-        StepExecutionState state = StepExecutionState.fromValue(value);
-        return STEP_DONE_STATES.contains(state);
-    }
-	
     /*public static boolean jobIsDone(String value)
     {
         JobFlowExecutionState state = JobFlowExecutionState.fromValue(value);

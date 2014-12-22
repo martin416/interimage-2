@@ -22,6 +22,7 @@ import java.util.Properties;
 import org.json.JSONObject;
 
 import br.puc_rio.ele.lvc.interimage.core.clustermanager.ClusterManager;
+import br.puc_rio.ele.lvc.interimage.core.clustermanager.ExecutionTracker;
 
 /**
  * Class that executes an operator on a cluster.<br>
@@ -36,6 +37,7 @@ public class gClusterOperator extends gOperator {
 	private Properties properties_;
 	private Map<String,String> parameters_;
 	private String script_;
+	private String name_;
 	
 	public gClusterOperator() {
 		parameters_ = new HashMap<String, String>();
@@ -46,6 +48,10 @@ public class gClusterOperator extends gOperator {
 		parser_ = parser;
 	}
 		
+	public void setName(String name) {
+		name_ = name;
+	}
+	
 	public void setOperatorName(String operatorName) {
 		operatorName_ = operatorName;
 	}
@@ -74,7 +80,7 @@ public class gClusterOperator extends gOperator {
 		
 	/** This method executes a Pig script on the given cluster.*/
 	@Override
-	protected int execute(ClusterManager clusterManager, String clusterId, boolean setup) {
+	protected ExecutionTracker execute(ClusterManager clusterManager, String clusterId, boolean setup) {
 						
 		/*Setting input paths from previous nodes output paths*/
 		
@@ -144,11 +150,12 @@ public class gClusterOperator extends gOperator {
 		
 		//setOutputPath(parser_.getResult());
 		
-		System.out.println(script);
+		//System.out.println(script);
+		System.out.println(name_);
 		
-		clusterManager.runPigScript(script.toString(), clusterId);
+		ExecutionTracker tracker = clusterManager.runPigScript(script.toString(), clusterId);
 		
-		return 0;
+		return tracker;
 	}
 
 	public String getOutputPath() {

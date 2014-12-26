@@ -88,6 +88,8 @@ public class AWSSource implements Source {
 					putObjectRequest.withCannedAcl(CannedAccessControlList.PublicRead); // public for all
 				} else if (rsrc.getType() == DefaultResource.SHAPE) {
 					putObjectRequest.withCannedAcl(CannedAccessControlList.PublicRead); // public for all
+				} else if (rsrc.getType() == DefaultResource.SEMANTIC_NETWORK) {
+					putObjectRequest.withCannedAcl(CannedAccessControlList.PublicRead); // public for all
 				}
 			}
 		

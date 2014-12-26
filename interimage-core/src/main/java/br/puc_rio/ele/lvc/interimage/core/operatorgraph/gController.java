@@ -353,7 +353,7 @@ public class gController extends DefaultDirectedGraph<gNode, gEdge> {
 		}
 				
 		for (int i=0; i<nClusters_; i++) {			
-			clusterManager_[i].terminateCluster(clusterId_[i]);
+			//clusterManager_[i].terminateCluster(clusterId_[i]);
 		}
 				
 		return 0;

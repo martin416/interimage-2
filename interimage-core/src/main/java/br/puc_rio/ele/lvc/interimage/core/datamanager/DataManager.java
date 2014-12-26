@@ -154,7 +154,11 @@ public class DataManager {
 					    //btw.close();
 					    bw.close();
 					    
-					    ShapefileConverter.JSONToShapefileF(projectPath + "tiles", projectPath + "tiles-shapes", null, false, "", "", false);
+					    File path2 = new File(projectPath + "tiles-shapes/");
+					    
+					    path2.mkdirs();
+					    
+					    ShapefileConverter.JSONToShapefileF(projectPath + "tiles", projectPath + "tiles-shapes", null, false, null, null, false);
 					    
 					}
 					    
@@ -292,11 +296,10 @@ public class DataManager {
 						        }
 						    }*/
 							
+							OutputStream out2 = new FileOutputStream(projectPath + "shapes/" + shp.getKey() + "/" + shp.getKey() + ".json");
+							
 						    for (br.puc_rio.ele.lvc.interimage.common.Shape shape : shapes) {
 						    	//bw.write(tile.getGeometry() + "\n");
-						    	
-						    	/*for segmentation purposes*/
-							    OutputStream out2 = new FileOutputStream(projectPath + "shapes/" + shp.getKey() + "/" + shape.getCode() + ".json");
 						    							    	
 						    	String str = "{\"geometry\":";	                
 				                str += "\"" + shape.getGeometry() + "\"";
@@ -307,8 +310,9 @@ public class DataManager {
 						    	
 						    	//btw.write(str);
 						    	
-						    	out2.close();
 						    }
+
+						    out2.close();
 						    
 						    //btw.close();
 						    //bw.close();
@@ -486,7 +490,7 @@ public class DataManager {
 					list.add("ury");
 					
 					String json = URL.getPath(url) + URL.getFileNameWithoutExtension(url) + ".json";
-					ShapefileConverter.shapefileToJSON(url, json, list, false, shp.getCRS(), shp.getCRS(), gbox, tileManager,true);
+					ShapefileConverter.shapefileToJSON(url, json, list, false, shp.getCRS(), shp.getCRS(), gbox, tileManager,false);
 					//ShapefileConverter.JSONToShapefile(json, "C:\\Users\\Rodrigo\\Desktop\\test.shp", list, false, shp.getCRS(), shp.getCRS());
 					String to = "interimage/" + projectName + "/resources/shapes/" + shp.getKey() + ".json";
 					

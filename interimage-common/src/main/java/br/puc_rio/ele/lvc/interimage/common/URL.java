@@ -61,6 +61,19 @@ public class URL {
 		
 	}
 	
+	public static String getFolderName(String file) {
+		
+		int idx = file.lastIndexOf("/");
+		
+		if (idx==-1)
+			idx = file.lastIndexOf("\\");
+		
+        String fileName = file.substring(idx + 1);
+        
+        return fileName;
+		
+	}
+	
 	public static String getFileNameWithoutExtension(String file) {
 		
 		int idx = file.lastIndexOf("/");

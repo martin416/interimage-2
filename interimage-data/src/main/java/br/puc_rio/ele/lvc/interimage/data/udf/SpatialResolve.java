@@ -44,6 +44,7 @@ import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.LinearRing;
 import com.vividsolutions.jts.geom.Point;
+import com.vividsolutions.jts.geom.Polygon;
 import com.vividsolutions.jts.geom.prep.PreparedGeometry;
 import com.vividsolutions.jts.geom.prep.PreparedGeometryFactory;
 import com.vividsolutions.jts.io.WKTWriter;
@@ -179,51 +180,60 @@ public class SpatialResolve extends EvalFunc<DataBag> {
 			
 			geom = tileGeom.intersection(geom);
 			
-			PreparedGeometry prep = PreparedGeometryFactory.prepare(geom);
+			for (int k=0; k<geom.getNumGeometries(); k++) {
 			
-			int[] bBox = Image.imgBBox(new double[] {geom.getEnvelopeInternal().getMinX(), geom.getEnvelopeInternal().getMinY(), geom.getEnvelopeInternal().getMaxX(), geom.getEnvelopeInternal().getMaxY()}, tileGeoBox, new int[] {width, height});
-	        
-	        double[] geoBBox = Image.geoBBox(bBox, tileGeoBox, new int[] {width, height});
-				        
-			//int gwidth = bBox[2]-bBox[0]+1;
-			//int gheight = bBox[1]-bBox[3]+1;
+				Geometry g = geom.getGeometryN(k);
+				
+				if (!(g instanceof Polygon))
+					continue;
+				
+				PreparedGeometry prep = PreparedGeometryFactory.prepare(g);
+				
+				int[] bBox = Image.imgBBox(new double[] {g.getEnvelopeInternal().getMinX(), g.getEnvelopeInternal().getMinY(), g.getEnvelopeInternal().getMaxX(), g.getEnvelopeInternal().getMaxY()}, tileGeoBox, new int[] {width, height});
+		        
+		        double[] geoBBox = Image.geoBBox(bBox, tileGeoBox, new int[] {width, height});
+					        
+				//int gwidth = bBox[2]-bBox[0]+1;
+				//int gheight = bBox[1]-bBox[3]+1;
+							
+				RandomAccess< LongType > r = img.randomAccess();
+				
+				/*System.out.println("bbox[0]: " + bBox[0]);
+				System.out.println("bbox[1]: " + bBox[1]);
+				System.out.println("bbox[2]: " + bBox[2]);
+				System.out.println("bbox[3]: " + bBox[3]);
+				
+				System.out.println("geobbox[0]: " + geoBBox[0]);
+				System.out.println("geobbox[1]: " + geoBBox[1]);
+				System.out.println("geobbox[2]: " + geoBBox[2]);
+				System.out.println("geobbox[3]: " + geoBBox[3]);*/
+				
+				//Rasterization
+				for (int j=bBox[3]; j<=bBox[1]; j++) {
+					for (int i=bBox[0]; i<=bBox[2]; i++) {
 						
-			RandomAccess< LongType > r = img.randomAccess();
-			
-			/*System.out.println("bbox[0]: " + bBox[0]);
-			System.out.println("bbox[1]: " + bBox[1]);
-			System.out.println("bbox[2]: " + bBox[2]);
-			System.out.println("bbox[3]: " + bBox[3]);
-			
-			System.out.println("geobbox[0]: " + geoBBox[0]);
-			System.out.println("geobbox[1]: " + geoBBox[1]);
-			System.out.println("geobbox[2]: " + geoBBox[2]);
-			System.out.println("geobbox[3]: " + geoBBox[3]);*/
-			
-			//Rasterization
-			for (int j=bBox[3]; j<=bBox[1]; j++) {
-				for (int i=bBox[0]; i<=bBox[2]; i++) {
-					
-					double centerPixelX = geoBBox[0] + ((i-bBox[0])*resX) + (resX/2);
-					double centerPixelY = geoBBox[3] + ((j-bBox[3])*resY) + (resY/2);
-					
-					Point point = new GeometryFactory().createPoint(new Coordinate(centerPixelX, centerPixelY));
-					
-					if (prep.covers(point)) {
+						double centerPixelX = geoBBox[0] + ((i-bBox[0])*resX) + (resX/2);
+						double centerPixelY = geoBBox[3] + ((j-bBox[3])*resY) + (resY/2);
 						
-						//System.out.println("covers: " + i + "," + j);
+						Point point = new GeometryFactory().createPoint(new Coordinate(centerPixelX, centerPixelY));
 						
-						r.setPosition(i, 0);
-						r.setPosition(j, 1);
-						LongType value = r.get();
-						value.set(id);
+						if (prep.covers(point)) {
+							
+							//System.out.println("covers: " + i + "," + j);
+							
+							r.setPosition(i, 0);
+							r.setPosition(j, 1);
+							LongType value = r.get();
+							value.set(id);
+							
+							//System.out.println("put id: " + id);
+							
+							//System.out.println("img id: " + r.get().get());
+						}
 						
-						//System.out.println("put id: " + id);
-						
-						//System.out.println("img id: " + r.get().get());
 					}
-					
 				}
+				
 			}
 			
 			id++;

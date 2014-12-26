@@ -268,10 +268,10 @@ public class PigParser {
 			        	if ((count1<=blockSize) && (count2<=totalSize)) {
 			        		
 			        		if (first1) {
-			        			names = names + "/" + fileEntry.getName();
+			        			names = names + fileEntry.getName();
 			        			first1 = false;
 			        		} else {
-			        			names = names + ",/" + fileEntry.getName();
+			        			names = names + "," + fileEntry.getName();
 			        		}
 			        		
 			        		if ((count1 == blockSize) || (count2 == totalSize)) {
@@ -405,7 +405,37 @@ public class PigParser {
 	    		
 	    		String[] terms = line.split(" ");
 	    			    		
-	    		parsedScript = parsedScript + parse(terms[1], false); 
+	    		parsedScript = parsedScript + parse(terms[1], false);
+	    	
+	    	} else if (line.contains("MLOAD")) {
+	    		
+	    		String input_path = _specificParams.get("$INPUT_PATH");
+	    		
+	    		String[] inputs = input_path.split(",");
+	    		
+	    		for (int i=0; i<inputs.length; i++) {
+	    			String aux1 = "load = LOAD '" + inputs[i] + "' USING org.apache.pig.builtin.JsonLoader('geometry:chararray, data:map[chararray], properties:map[bytearray]');";
+		    		String[] result1 = evaluate(aux1);	        		
+	        		parsedScript = parsedScript + result1[0] + " = " + result1[1] + "\n";
+	    		}
+	    		
+	    		String aux2 = "union = UNION ";
+	    		
+	    		boolean first = true;
+	    		
+	    		for (int i=0; i<inputs.length; i++) {
+	    			if (first) {
+	    				aux2 = aux2 + "load_" + (i+1);
+	    				first = false;
+	    			} else
+	    				aux2 = aux2 + ", load_" + (i+1);
+	    		}
+	    		
+	    		aux2 = aux2 + ";";
+	    		
+	    		String[] result2 = evaluate(aux2);
+        		
+        		parsedScript = parsedScript + result2[0] + " = " + result2[1] + "\n";
 	    		
 	    	} else {
 	    		

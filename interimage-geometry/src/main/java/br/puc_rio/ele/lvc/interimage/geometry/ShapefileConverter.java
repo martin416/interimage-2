@@ -50,6 +50,7 @@ import br.puc_rio.ele.lvc.interimage.common.UUID;
 
 import com.google.common.io.ByteStreams;
 import com.vividsolutions.jts.geom.Coordinate;
+import com.vividsolutions.jts.geom.CoordinateFilter;
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
@@ -65,6 +66,305 @@ import com.vividsolutions.jump.io.EndianDataOutputStream;
 public class ShapefileConverter {
 
 	static final byte[] STREAM_HEADER = new byte[] { 's', 'n', 'a', 'p', 'p', 'y', 0};
+	
+	public static void replicateShape(String inPath, String outPath, List<String> names, boolean keep, double[] geoBBox, int cols, int rows) {
+		
+		try {
+			
+			boolean compressed = false;
+			String crsFrom = null;
+			
+			String shapefile = inPath;
+	
+			/* Processing input parameters */
+			if (shapefile == null) {
+	            throw new Exception("No Shapefile specified");
+	        } else {
+	            if (shapefile.isEmpty()) {
+	            	throw new Exception("No Shapefile specified");
+	            }
+	        }
+			
+			/*if (json == null) {
+	            throw new Exception("No JSON specified");
+	        } else {
+	            if (json.isEmpty()) {
+	            	throw new Exception("No JSON specified");
+	            }
+	        }*/
+						
+	        int idx = shapefile.lastIndexOf(File.separatorChar);
+	        String path = shapefile.substring(0, idx + 1); // ie. "/data1/hills.shp" -> "/data1/"
+	        String fileName = shapefile.substring(idx + 1); // ie. "/data1/hills.shp" -> "hills.shp"
+
+	        idx = fileName.lastIndexOf(".");
+
+	        if (idx == -1) {
+	            throw new Exception("Filename must end in '.shp'");
+	        }
+	        	        
+	        String fileNameWithoutExtention = fileName.substring(0, idx); // ie. "hills.shp" -> "hills"
+	        String dbfFileName = path + fileNameWithoutExtention + ".dbf";
+				        	        
+			/* Stream for output file */
+			OutputStream out = new FileOutputStream(outPath);
+			
+			/* Preparing to read shapefile */
+			InputStream in = new FileInputStream(shapefile);
+			
+			EndianDataInputStream file = new EndianDataInputStream(in);
+	        
+	        ShapefileHeader mainHeader = new ShapefileHeader(file);
+	        	        
+	        Geometry geom;
+	        GeometryFactory factory = new GeometryFactory();
+	        
+	        int type = mainHeader.getShapeType();
+	        
+	        ShapeHandler handler = Shapefile.getShapeHandler(type);
+	        	        
+	        /*geoBBox[0] = Double.MAX_VALUE;
+			geoBBox[1] = Double.MAX_VALUE;
+			geoBBox[2] = -Double.MAX_VALUE;
+			geoBBox[3] = -Double.MAX_VALUE;*/
+	        
+	        if (handler == null) {
+	        	in.close();
+	        	out.close();
+	        	throw new Exception("Unsuported shape type: " + type);
+	        }
+	        
+	        /* Preparing to read dbf file */
+	        
+	        File dbfFile = new File(dbfFileName);
+	        DbfFile mydbf = null;
+
+            if (dbfFile.exists()) {
+            	mydbf = new DbfFile(dbfFileName);
+            }
+            
+            int numfields = mydbf.getNumFields();
+            
+            /* Conversion */
+            @SuppressWarnings("unused")
+	        int recordNumber=0;
+	        int contentLength=0;
+
+	        int index = 0;
+	        
+	        final double tileSizeX = geoBBox[2]-geoBBox[0];
+	        final double tileSizeY = geoBBox[3]-geoBBox[1];
+	        	        
+	        try {
+	            while (true) {
+	            	
+	            	StringBuffer s = mydbf.GetDbfRec(index);
+	            	
+	            	List<String> attributeNames = new ArrayList<String>();
+	            	
+	            	recordNumber=file.readIntBE();
+	                contentLength=file.readIntBE();                
+	                geom = handler.read(file,factory,contentLength);
+	
+	                for (int c=0; c<cols; c++) {
+	                	for (int r=0; r<rows; r++) {
+	                		
+	                		final int c1 = c;
+	            	        final int r1 = r;
+	                		
+	            	        Geometry aux = geom.buffer(0);
+	            	        
+	                		aux.apply(new CoordinateFilter() {
+	    		                public void filter(Coordinate coord) {	    		                	
+	    		                	coord.setOrdinate(0, coord.x + (c1*tileSizeX));
+	    		                	coord.setOrdinate(1, coord.y + (r1*tileSizeY));
+	    		                }
+	    		            });
+	                		
+	                		//TODO: Should we do it here or in the cluster?
+	    	                //TODO: Maybe it's possible to postpone the conversion and tile computation to the cluster
+	    	                
+	    	                /*if (crsFromCode == 4326) {
+	    				    	
+	    			    		final WebMercatorLatLongConverter webMercator = new WebMercatorLatLongConverter();
+	    						webMercator.setDatum("WGS84");
+	    			    					    		
+	    			    		geom.apply(new CoordinateFilter() {
+	    			                public void filter(Coordinate coord) {
+	    			                	webMercator.LatLongToWebMercator(coord);
+	    			                }
+	    			            });
+	    						
+	    			    		geom.setSRID(3857);					
+	    						geom.geometryChanged();
+	    			    		
+	    			    	} else if (((crsFromCode >= 32601) && (crsFromCode <= 32660)) || ((crsFromCode >= 32701) && (crsFromCode <= 32760))) {
+	    			    	
+	    			    		final int utmZone = (crsFromCode>32700) ? crsFromCode-32700 : crsFromCode-32600;
+	    						final boolean southern = (crsFromCode>32700) ? true : false;
+	    				    
+	    						final UTMLatLongConverter utm = new UTMLatLongConverter();
+	    						utm.setDatum("WGS84");
+	    						
+	    						final WebMercatorLatLongConverter webMercator = new WebMercatorLatLongConverter();
+	    						webMercator.setDatum("WGS84");
+	    						
+	    						geom.apply(new CoordinateFilter() {
+	    			                public void filter(Coordinate coord) {
+	    			                	utm.UTMToLatLong(coord, utmZone, southern);
+	    						    	webMercator.LatLongToWebMercator(coord);
+	    			                }
+	    			            });
+	    							    
+	    						geom.setSRID(3857);					
+	    						geom.geometryChanged();
+	    						
+	    			    	}*/
+	    	                	                
+	    					/*Computing global bounding box*/
+	    					
+	    					/*double[] bbox = new double[] {geom.getEnvelopeInternal().getMinX(), geom.getEnvelopeInternal().getMinY(), geom.getEnvelopeInternal().getMaxX(), geom.getEnvelopeInternal().getMaxY()};
+	    										
+	    					if (bbox[0] < geoBBox[0]) {	//west
+	    						geoBBox[0] = bbox[0];
+	    					}
+	    					
+	    					if (bbox[1] < geoBBox[1]) {	//south
+	    						geoBBox[1] = bbox[1];
+	    					}
+	    					
+	    					if (bbox[2] > geoBBox[2]) {	//east
+	    						geoBBox[2] = bbox[2];
+	    					}
+	    					
+	    					if (bbox[3] > geoBBox[3]) {	//north
+	    						geoBBox[3] = bbox[3];
+	    					}*/
+	    															
+	    	                //TODO: fix EVERYTHING to work with more than one tile	                
+	    					//List<String> tiles = tileManager.getTiles(bbox);
+	    					
+	    					String tileString = new String();
+	    					
+	    					/*boolean first = true;
+	    					for (String i : tiles) {
+	    						if (first) {
+	    							tileString = i;
+	    							first = false;
+	    						} else {
+	    							tileString = tileString + "," + i;
+	    						}
+	    					}*/
+	    	                					
+	    	                //TODO: Should work with wkb
+	    					
+	    	                String str = "{\"geometry\":";	                
+	    	                str += "\"" + aux.toText() + "\"";
+	    	                //str += "\"" + WKBWriter.toHex(new WKBWriter().write(geom)) + "\"";	                	                
+	    	                str += ",\"data\":{\"0\":\"\"}";
+	    	                str += ",\"properties\":{\"tile\":\"" + tileString + "\"";
+	    	                
+	    	                for (int y=0; y<numfields; y++) {
+	    	                	
+	    	                	Object obj = mydbf.ParseRecordColumn(s, y);
+	    	                		                	
+	    	                	boolean bool;
+	    	                	String name = mydbf.getFieldName(y);
+	    	                	
+	    	                	if (names != null) {
+	    	                	
+	    		                	if (names.size() > 0) {	                	
+	    			                	if (keep) {
+	    			                		bool = names.contains(name);
+	    			                	} else {
+	    			                		bool = !names.contains(name);
+	    			                	}
+	    		                	} else {
+	    		                		bool = true;
+	    		                	}
+	    		                	
+	    	                	} else {
+	    	                		bool = true;
+	    	                	}
+	    	                	
+	    	                	if (bool) {
+	    		                	str += ",\"" + name + "\":";	                	
+	    		                	attributeNames.add(name);
+	    	                	
+	    		                	try {
+	    		                		//Tests if it's an integer
+	    		                	    Integer intValue = Integer.parseInt(obj.toString().trim());
+	    		                	    str += intValue.toString();
+	    		                	} catch (NumberFormatException nfe) {
+	    		                	    //Not an integer. Tests if it's a double
+	    		                		try {
+	    		                			Double doubleValue = Double.parseDouble(obj.toString().trim());
+	    		                			str += doubleValue.toString();
+	    		                		} catch (NumberFormatException nfe2) {
+	    		                			//Not a double. Assuming it's a string
+	    		                			str += "\"" + obj.toString().trim() + "\"";	
+	    		                		}
+	    		                	}
+	    		                	
+	    	                	}
+	    	                		                	
+	    	                }
+	    	                
+	    	                if (!attributeNames.contains("class")) {
+	    	                	str += ",\"class\":";
+	    	                	str += "\"None\"";
+	    	                }
+	    	                	                
+	    	                str += ",\"crs\":";
+	    	                str += "\"" + crsFrom + "\"";
+	    	                	                	    		    
+	    	    		    String id = new UUID(null).random();
+	    	    		    	                
+	    	                str += ",\"iiuuid\":";
+	    	               	str += "\"" + id + "\"";
+	    	                	                
+	    	                str += "}}\n";
+	    	                
+	    	                if (compressed) {
+	    	                
+	    		                /*ByteArrayOutputStream outStream = new ByteArrayOutputStream();
+	    		        		
+	    		        		try {
+	    		        			
+	    		        		    OutputStream snappyOut  = new SnappyOutputStream(outStream);
+	    		        		    snappyOut.write(str.getBytes());
+	    		        		    snappyOut.close();
+	    		        		    
+	    		        		} catch (Exception e) {
+	    		        			e.printStackTrace();
+	    		        			System.out.println("It was not possible to compress the string.");
+	    		        		}
+	    		        	 
+	    		        		out.write(outStream.toByteArray());*/
+	    		        				                
+	    	                } else {
+	    	                	out.write(str.getBytes());
+	    	                }
+	                		
+	                	}
+	                }
+	                
+	            }
+	        } catch (EOFException e) {
+	        	
+	        }
+	        
+            mydbf.close();
+			
+	        in.close();
+	        out.close();
+	        
+		} catch (Exception e) {
+			System.err.println("Failed to parse shapefile; error - " + e.getMessage());
+			e.printStackTrace();
+		}
+		
+	}
 	
 	/**
 	 * Converts JSON files to Shapefiles (whole folder).<br>

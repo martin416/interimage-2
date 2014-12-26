@@ -14,6 +14,7 @@ limitations under the License.*/
 
 package br.puc_rio.ele.lvc.interimage.data;
 
+import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -25,12 +26,18 @@ import java.lang.Exception;
 import java.util.Iterator;
 import java.util.List;
 
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReadParam;
 import javax.imageio.ImageReader;
+import javax.imageio.ImageTypeSpecifier;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageInputStream;
+import javax.imageio.stream.ImageOutputStream;
 
 import br.puc_rio.ele.lvc.interimage.common.TileManager;
+import br.puc_rio.ele.lvc.interimage.common.URL;
 
 /**
  * Converts between an image format and InterIMAGE formats.<br>
@@ -48,6 +55,291 @@ import br.puc_rio.ele.lvc.interimage.common.TileManager;
  */
 
 public class ImageConverter {
+	
+	public static void replicateImageMosaic(String inPath, String outPath, double[] geoBBox, int cols, int rows) {
+	
+		try {
+			
+			String image = inPath;
+						
+			/* Processing input parameters */
+			if (image == null) {
+	            throw new Exception("No Image specified");
+	        } else {
+	            if (image.isEmpty()) {
+	            	throw new Exception("No Image specified");
+	            }
+	        }
+			
+			/*Treating format names*/
+            
+            int idx = image.lastIndexOf(".");
+            
+            String extension = image.substring(idx);
+            String formatName = null;
+            
+            if ((extension.equals(".tif")) || (extension.equals(".tiff"))) {
+            	formatName = "tif";
+            } else if ((extension.equals(".jpg")) || (extension.equals(".jpeg")) || (extension.equals(".jls")) || (extension.equals(".jfif"))) {
+            	formatName = "jpg";
+            } else if (extension.equals(".png")) {
+            	formatName = "png";
+            } else if (extension.equals(".jp2")) {
+            	formatName = "jpeg2000";
+            } else if (extension.equals(".bmp")) {
+            	formatName = "bmp";
+            } else if ((extension.equals(".pbm")) || (extension.equals(".pgm")) || (extension.equals(".ppm"))) {
+            	formatName = "pnm";
+            }
+			
+            if (formatName == null) {
+            	throw new Exception("Image format not supported: " + extension);
+            }
+            
+            InputStream input = new FileInputStream(image);
+			
+	        /* Preparing to read the image */
+	        ImageInputStream in = ImageIO.createImageInputStream(input); 
+	        /* try to decode the image with all registered imagereaders */
+	        Iterator<ImageReader> readers = ImageIO.getImageReaders(in);
+	        	        
+	        ImageReader reader = null;
+	        
+	        if (readers.hasNext()) {
+	            reader = readers.next();
+	            reader.setInput(in);           
+	        } else {
+	        	/* TODO: Test if it is supported format */
+	        	//out.close();
+		        throw new Exception("Unsuported image type");
+	        }
+	        	        
+	        //ImageReadParam param = reader.getDefaultReadParam();
+	        
+	        int imgW = reader.getWidth(0);
+	        int imgH = reader.getHeight(0);
+	        
+	        BufferedImage inputImg = reader.read(0);
+	        
+	        //int nW = imgW * cols;
+	        //int nH = imgH * rows;
+	        	        	        
+    		//BufferedImage img = new BufferedImage(cols*imgW, rows*imgH, BufferedImage.TYPE_CUSTOM);
+    			        
+    		double tileSizeX = geoBBox[2]-geoBBox[0];
+    		double tileSizeY = geoBBox[1]-geoBBox[3];
+    		
+    		//Rectangle region = new Rectangle();
+    		
+    		String path = URL.getPath(outPath);
+    		String name = URL.getFileNameWithoutExtension(outPath);
+    		
+    		//ImageTypeSpecifier type = reader.getImageTypes(0).next();
+    		    		
+    		for (int c=0; c<cols; c++) {
+    			for (int r=0; r<rows; r++) {
+    		
+    				ImageWriter writer = ImageIO.getImageWriter(reader);
+    				
+		    		OutputStream output = new FileOutputStream(path + name + "_" + c + "_" + r + extension);
+		    		
+		    		System.out.println(path + name + "_" + c + "_" + r + extension);
+		    		
+		    		ImageOutputStream outImg = ImageIO.createImageOutputStream(output);
+		    		    	
+		    		writer.setOutput(outImg);
+		    		
+		    		//writer.prepareWriteEmpty(null, type, imgW, imgH, null, null, null);
+		    		    		
+		    		//ImageWriteParam param2=writer.getDefaultWriteParam();
+		    				    		
+		    		//boolean first = true;
+		    		
+		    		//param2.setTilingMode(ImageWriteParam.MODE_DEFAULT);
+		    		//param2.setTiling(4000,4000,0,0);
+		    		    		
+    				System.out.println(c + "," + r);
+    				//region.setSize(imgW,imgH);
+    				//region.setLocation(0,0);
+    				//writer.prepareReplacePixels(0, region);
+    				//param2.setDestinationOffset(new Point(0, 0));
+    				//writer.replacePixels(inputImg, param2);
+    				//writer.endReplacePixels();    				
+		    					
+					//writer.endWriteEmpty();
+					
+					//writer.dispose();
+    				writer.write(inputImg);
+    				writer.dispose();
+    				outImg.flush();
+    				outImg.close();
+    				output.flush();
+    				output.close();
+    				
+			        /*Write tiff file*/
+		            //File outputfile = new File(outPath);
+		            
+		            //ImageIO.write(img, formatName, outputfile);
+			        
+		            OutputStream out = new FileOutputStream(path + name + "_" + c + "_" + r + extension + "w");
+		            
+		            double resX = tileSizeX/imgW;
+		            double resY = tileSizeY/imgH;
+		            
+		            String str = resX + "\n";
+		            str = str + 0.0 + "\n";
+		            str = str + 0.0 + "\n";
+		            str = str + resY + "\n";
+		            str = str + (geoBBox[0]+(c*tileSizeX)+(resX/2)) + "\n";
+		            str = str + (geoBBox[3]-(r*tileSizeY)+(resY/2)) + "\n";
+		            
+		            out.write(str.getBytes());
+		            
+		            out.close();
+		                        
+    			}
+    		}
+	            
+		} catch (Exception e) {
+			System.err.println("Failed to parse image; error - " + e.getMessage());
+			e.printStackTrace();
+		}
+		
+	}
+	
+	public static void replicateImage(String inPath, String outPath, double[] geoBBox, int cols, int rows) {
+		
+		try {
+			
+			String image = inPath;
+						
+			/* Processing input parameters */
+			if (image == null) {
+	            throw new Exception("No Image specified");
+	        } else {
+	            if (image.isEmpty()) {
+	            	throw new Exception("No Image specified");
+	            }
+	        }
+			
+			/*Treating format names*/
+            
+            int idx = image.lastIndexOf(".");
+            
+            String extension = image.substring(idx);
+            String formatName = null;
+            
+            if ((extension.equals(".tif")) || (extension.equals(".tiff"))) {
+            	formatName = "tif";
+            } else if ((extension.equals(".jpg")) || (extension.equals(".jpeg")) || (extension.equals(".jls")) || (extension.equals(".jfif"))) {
+            	formatName = "jpg";
+            } else if (extension.equals(".png")) {
+            	formatName = "png";
+            } else if (extension.equals(".jp2")) {
+            	formatName = "jpeg2000";
+            } else if (extension.equals(".bmp")) {
+            	formatName = "bmp";
+            } else if ((extension.equals(".pbm")) || (extension.equals(".pgm")) || (extension.equals(".ppm"))) {
+            	formatName = "pnm";
+            }
+			
+            if (formatName == null) {
+            	throw new Exception("Image format not supported: " + extension);
+            }
+            
+            InputStream input = new FileInputStream(image);
+			
+	        /* Preparing to read the image */
+	        ImageInputStream in = ImageIO.createImageInputStream(input); 
+	        /* try to decode the image with all registered imagereaders */
+	        Iterator<ImageReader> readers = ImageIO.getImageReaders(in);
+	        	        
+	        ImageReader reader = null;
+	        
+	        if (readers.hasNext()) {
+	            reader = readers.next();
+	            reader.setInput(in);           
+	        } else {
+	        	/* TODO: Test if it is supported format */
+	        	//out.close();
+		        throw new Exception("Unsuported image type");
+	        }
+	        
+	        ImageWriter writer = ImageIO.getImageWriter(reader);
+	        
+	        //ImageReadParam param = reader.getDefaultReadParam();
+	        
+	        int imgW = reader.getWidth(0);
+	        int imgH = reader.getHeight(0);
+	        
+	        //int nW = imgW * cols;
+	        //int nH = imgH * rows;
+	        
+	        BufferedImage inputImg = reader.read(0);
+	        	        
+    		//BufferedImage img = new BufferedImage(cols*imgW, rows*imgH, BufferedImage.TYPE_CUSTOM);
+    			        
+    		double tileSizeX = geoBBox[2]-geoBBox[0];
+    		double tileSizeY = geoBBox[1]-geoBBox[3];
+    		
+    		OutputStream output = new FileOutputStream(outPath);
+    		
+    		ImageOutputStream outImg = ImageIO.createImageOutputStream(output);
+    		    	
+    		writer.setOutput(outImg);
+    		
+    		writer.prepareWriteEmpty(null, reader.getImageTypes(0).next(), cols*imgW, rows*imgH, null, null, null);
+    		    		
+    		ImageWriteParam param2=writer.getDefaultWriteParam();
+    		
+    		Rectangle region = new Rectangle();
+    		
+    		//boolean first = true;
+    		
+    		//param2.setTilingMode(ImageWriteParam.MODE_DEFAULT);
+    		//param2.setTiling(4000,4000,0,0);
+    		    		
+			for (int c=0; c<cols; c++) {
+    			for (int r=0; r<rows; r++) {
+    				System.out.println(c + "," + r);
+    				region.setSize(imgW,imgH);
+    				region.setLocation(c*imgW, r*imgH);
+    				writer.prepareReplacePixels(0, region);
+    				param2.setDestinationOffset(new Point(c*imgW, r*imgH));
+    				writer.replacePixels(inputImg, param2);
+    				writer.endReplacePixels();    				
+    			}
+    		}
+    					
+			writer.endWriteEmpty();
+			
+	        /*Write tiff file*/
+            //File outputfile = new File(outPath);
+            
+            //ImageIO.write(img, formatName, outputfile);
+	        
+            OutputStream out = new FileOutputStream(outPath + "w");
+            
+            double resX = tileSizeX/imgW;
+            double resY = tileSizeY/imgH;
+            
+            String str = resX + "\n";
+            str = str + 0.0 + "\n";
+            str = str + 0.0 + "\n";
+            str = str + resY + "\n";
+            str = str + (geoBBox[0]+(resX/2)) + "\n";
+            str = str + (geoBBox[3]-((rows-1)*tileSizeY)+(resY/2)) + "\n";
+            
+            out.write(str.getBytes());
+            
+            out.close();
+            
+		} catch (Exception e) {
+			System.err.println("Failed to parse image; error - " + e.getMessage());
+			e.printStackTrace();
+		}
+		
+	}
 	
 	public static void ImageToJSON(Image imageObj, String imagePath, List<String> list, boolean keep, TileManager tileManager) {
 		
